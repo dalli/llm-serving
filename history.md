@@ -119,3 +119,26 @@
 - **Retrospective:**
   - **What went well:** Lightweight process aligns with local dev flow
   - **What to improve:** Consider adding a pre-push hook template later if team grows
+
+## Summary (2025-08-14): Phase 2/3 progress and scaffolds
+
+- **Duration:** 2025-08-14 ~ 2025-08-14
+- **Completed Work:**
+  - Embeddings API and dummy runtime; engine integration; tests
+  - Worker pool with semaphore-bound concurrency; `ENGINE_WORKERS` env
+  - Generation parameters (`max_tokens`, `temperature`, `top_p`) plumbed end-to-end
+  - Response cache via `moka` (TTL, capacity) with cache hit/miss/store metrics
+  - Dynamic model management: admin list/load/unload; runtime maps under `RwLock`
+  - Metrics/health endpoints; request/latency/cache metrics via Prometheus exporter
+  - ONNX embedding runtime scaffolding (feature-gated) and env autoload
+  - Multimodal support: OpenAI-compatible vision DTOs, `MultimodalRuntime`, routing, dummy implementation
+  - LLaVA runtime scaffold (feature-gated) and env-based autoload hook
+- **Issues Encountered:**
+  - Upstream crate API mismatches (`llama_cpp`, `ort`, metrics macros)
+  - Type erasure when mixing trait objects for multimodal
+- **Solutions:**
+  - Feature-gated scaffolds; fallback behavior to keep default build green
+  - Dedicated multimodal runtime map; fixed metrics macros (value-first); adjusted ORT imports/builders
+- **Retrospective:**
+  - **What went well:** Incremental scaffolding with feature flags preserved stability; tests stayed green
+  - **What to improve:** Wire real logits sampling; finalize ONNX tokenizer/IO; implement LLaVA vision encode→LLM pipeline; add multimodal integration tests

@@ -7,7 +7,13 @@ service:
   type: ClusterIP
   port: 3000
 
-resources: {}
+resources:
+  requests:
+    cpu: 100m
+    memory: 128Mi
+  limits:
+    cpu: 500m
+    memory: 512Mi
 
 env: {}
 
@@ -24,6 +30,6 @@ hpa:
           averageUtilization: 70
 
 # Example GPU configuration (uncomment and set as needed)
-# resources:
-#   limits:
-#     nvidia.com/gpu: 1
+gpu:
+  enabled: false
+  count: 1

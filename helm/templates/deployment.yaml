@@ -16,6 +16,11 @@ spec:
         - name: server
           image: {{ .Values.image.repository }}:{{ .Values.image.tag }}
           imagePullPolicy: {{ .Values.image.pullPolicy }}
+          {{- if .Values.gpu.enabled }}
+          resources:
+            limits:
+              nvidia.com/gpu: {{ .Values.gpu.count }}
+          {{- end }}
           ports:
             - containerPort: 3000
           env:

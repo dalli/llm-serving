@@ -150,8 +150,8 @@ Based on the roadmap in `prd.md`, we define specific action items for each phase
     - [ ] **F10: Kubernetes Deployment**
         - [x] Create a deployment chart using `Helm` (Deployment, Service, ConfigMap, Secret)
         - [x] Configure Liveness/Readiness Probes using the `/health` endpoint
-        - [ ] Set up resource requests and limits for the HPA (Horizontal Pod Autoscaler)
-        - [ ] Configure `deployment.yaml` to request and use GPU resources
+        - [x] Set up resource requests and limits for the HPA (Horizontal Pod Autoscaler)
+        - [x] Configure `deployment.yaml` to request and use GPU resources
 
 ## 4. ⚙️ Development Process & Principles
 

@@ -16,6 +16,8 @@ async-trait = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt"] }
 futures = "0.3"
 tower = "0.5"
+moka = { version = "0.12", features = ["future"] }
+sha2 = "0.10"
 
 [features]
 default = []

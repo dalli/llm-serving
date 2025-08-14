@@ -1,5 +1,7 @@
 use std::{collections::HashMap, sync::Arc};
 use tokio::sync::{mpsc, Semaphore};
+use moka::future::Cache;
+use sha2::{Digest, Sha256};
 
 use crate::{
     api::dto::{
@@ -16,6 +18,7 @@ pub struct CoreEngine {
     llm_runtimes: HashMap<String, Arc<dyn LlmRuntime>>,
     embedding_runtimes: HashMap<String, Arc<dyn EmbeddingRuntime>>,
     request_sender: mpsc::Sender<EngineRequest>,
+    response_cache: Cache<String, ChatCompletionResponse>,
 }
 
 pub enum EngineRequest {
@@ -71,6 +74,10 @@ impl CoreEngine {
             llm_runtimes,
             embedding_runtimes,
             request_sender,
+            response_cache: Cache::builder()
+                .max_capacity(10_000)
+                .time_to_live(std::time::Duration::from_secs(60))
+                .build(),
         }
     }
 
@@ -201,6 +208,19 @@ impl CoreEngine {
         request: ChatCompletionRequest,
         stream_sender: Option<mpsc::Sender<String>>,
     ) -> Result<ChatCompletionResponse, String> {
+        // Cache only non-streaming responses
+        let cache_key = if stream_sender.is_none() {
+            Some(Self::hash_chat_request(&request))
+        } else {
+            None
+        };
+
+        if let Some(ref key) = cache_key {
+            if let Some(resp) = self.response_cache.get(key).await {
+                return Ok(resp);
+            }
+        }
+
         let (response_sender, mut response_receiver) = mpsc::channel(1);
         self.request_sender
             .send(EngineRequest::ChatCompletion {
@@ -212,15 +232,32 @@ impl CoreEngine {
             .map_err(|e| format!("Failed to send request to engine: {}", e))?;
         
         if stream_sender.is_none() {
-            response_receiver
+            let result = response_receiver
                 .recv()
                 .await
-                .ok_or("Engine response channel closed".to_string())?
+                .ok_or("Engine response channel closed".to_string())?;
+            if let (Some(key), Ok(resp)) = (cache_key, &result) {
+                self.response_cache.insert(key, resp.clone()).await;
+            }
+            result
         } else {
             // For streaming, we don't return a ChatCompletionResponse directly
             // The response is sent via the stream_sender
             Err("Streaming response handled via sender".to_string())
         }
+    }
+
+    fn hash_chat_request(req: &ChatCompletionRequest) -> String {
+        let mut hasher = Sha256::new();
+        hasher.update(req.model.as_bytes());
+        for m in &req.messages {
+            hasher.update(m.role.as_bytes());
+            hasher.update(m.content.as_bytes());
+        }
+        if let Some(mt) = req.max_tokens { hasher.update(mt.to_le_bytes()); }
+        if let Some(t) = req.temperature { hasher.update(t.to_le_bytes()); }
+        if let Some(tp) = req.top_p { hasher.update(tp.to_le_bytes()); }
+        format!("{:x}", hasher.finalize())
     }
 
     pub async fn process_embedding_request(

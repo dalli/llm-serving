@@ -53,17 +53,22 @@
   - F1: Generation parameters
     - Extended `ChatCompletionRequest` with `max_tokens`, `temperature`, `top_p`
     - Engine applies `max_tokens` to runtime generation; tests updated
+  - F4: Response Caching
+    - Added `moka` cache with TTL and capacity; keyed by request hash
+    - Cached non-streaming chat responses; preserved streaming semantics
 
 - **Issues Encountered:**
   - Concurrency orchestration within a single worker loop caused potential head-of-line blocking
   - Backward compatibility risk when adding new request fields
+  - Cache get is async in `moka::future`; initial code missed `.await`
 - **Solution:**
   - Switched to per-request task spawn with a shared `Semaphore` to bound concurrency, avoiding blocking the receiver loop
   - Used optional fields with serde defaulting to maintain compatibility
+  - Fixed by awaiting cache get and cloning response for insertion
 
 - **Retrospective:**
   - **What went well:** Simple, bounded concurrency model improved throughput without complicating the engine interface.
-  - **What to improve:** Add graceful shutdown and drain logic; expose concurrency in config; add per-model concurrency limits; wire `temperature/top_p` through runtimes when supported.
+  - **What to improve:** Add graceful shutdown and drain logic; expose concurrency in config; add per-model concurrency limits; wire `temperature/top_p` through runtimes; add cache invalidation controls and metrics.
 
 ## Process Update: Per-task workflow and helper
 

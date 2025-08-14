@@ -108,10 +108,10 @@ Based on the roadmap in `prd.md`, we define specific action items for each phase
 ### Phase 3: Stabilization & Management (3 weeks)
 - **Goal**: Ensure stability and management features for production operation.
 - **Detailed Tasks**:
-    - [ ] **F4: Response Caching**
-        - [ ] Add `moka` dependency and initialize the cache instance
-        - [ ] Add LRU caching logic within the `CoreEngine` (using request hash as key)
-        - [ ] Implement cache TTL (Time-To-Live) configuration
+    - [x] **F4: Response Caching**
+        - [x] Add `moka` dependency and initialize the cache instance
+        - [x] Add LRU caching logic within the `CoreEngine` (using request hash as key)
+        - [x] Implement cache TTL (Time-To-Live) configuration
     - [ ] **F5: Dynamic Model Management**
         - [ ] Implement `POST /admin/models/load` and `POST /admin/models/unload` API endpoints
         - [ ] Modify the `CoreEngine` to dynamically load/unload models without service interruption (e.g., using `Arc<Mutex<HashMap>>`)

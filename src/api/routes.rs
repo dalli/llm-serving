@@ -84,8 +84,8 @@ pub async fn admin_models_list(
     State(engine): State<Arc<CoreEngine>>,
 ) -> Result<Response, AppError> {
     authorize_request(&headers).map_err(AppError::BadRequest)?;
-    let (llm, embedding, multimodal) = engine.list_models().await;
-    Ok(Json(ModelsListResponse { llm, embedding, multimodal }).into_response())
+    let (llm, embedding, multimodal, image) = engine.list_models().await;
+    Ok(Json(ModelsListResponse { llm, embedding, multimodal, image }).into_response())
 }
 
 pub async fn admin_models_load(

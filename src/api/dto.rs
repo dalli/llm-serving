@@ -176,4 +176,5 @@ pub struct ModelsListResponse {
     pub llm: Vec<String>,
     pub embedding: Vec<String>,
     pub multimodal: Vec<String>,
+    pub image: Vec<String>,
 }

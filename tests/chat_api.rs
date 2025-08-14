@@ -162,6 +162,7 @@ async fn admin_can_load_and_unload_embedding_model() {
     let v: Value = serde_json::from_slice(&body).unwrap();
     assert!(v["embedding"].as_array().unwrap().iter().any(|m| m.as_str() == Some("dummy-embedding")));
     assert!(v["multimodal"].is_array());
+    assert!(v["image"].is_array());
 
     // load new embedding model (falls back to dummy if feature not enabled/path missing)
     let payload = json!({"model": "custom-embed", "kind": "embedding", "path": null});

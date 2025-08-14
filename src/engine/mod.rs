@@ -456,11 +456,12 @@ impl CoreEngine {
     }
 
     // Admin helpers (simple; no persistence)
-    pub async fn list_models(&self) -> (Vec<String>, Vec<String>, Vec<String>) {
+    pub async fn list_models(&self) -> (Vec<String>, Vec<String>, Vec<String>, Vec<String>) {
         let llm = { self.llm_runtimes.read().await.keys().cloned().collect::<Vec<_>>() };
         let embedding = { self.embedding_runtimes.read().await.keys().cloned().collect::<Vec<_>>() };
         let multimodal = { self.multimodal_runtimes.read().await.keys().cloned().collect::<Vec<_>>() };
-        (llm, embedding, multimodal)
+        let image = { self.image_runtimes.read().await.keys().cloned().collect::<Vec<_>>() };
+        (llm, embedding, multimodal, image)
     }
 
     pub async fn load_model(&self, kind: &str, name: &str, path: Option<&str>) -> Result<(), String> {

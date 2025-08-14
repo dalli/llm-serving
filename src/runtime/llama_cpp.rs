@@ -51,8 +51,8 @@ impl LlamaCppRuntime {
 #[async_trait]
 impl LlmRuntime for LlamaCppRuntime {
     async fn generate(&self, prompt: &str, options: &GenerationOptions) -> Result<String, String> {
-        // NOTE: Due to llama_cpp crate API variances across versions, we keep a minimal session setup
-        // and return a truncated echo as a placeholder. The structure allows wiring true decoding later.
+        // Fallback-only implementation until stable decoding APIs are present in the crate version.
+        // We still create a session to validate model usability, then return a deterministic output.
         let _session = self.create_session();
         let truncated: String = prompt.chars().take(options.max_tokens as usize).collect();
         Ok(truncated)

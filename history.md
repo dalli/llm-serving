@@ -65,6 +65,7 @@
     - Auto-loads when `LLAMA_MODEL_PATH` is set; registered under model name `llama-cpp`
     - Added GGUF/GGML validation and memory-mapped file check in `LlamaCppRuntime::new` using `memmap2`
     - Wired generation parameters through runtime via `GenerationOptions`; updated `LlmRuntime` trait and implementations
+    - Introduced sampling helper (top-p + temperature) scaffold for future logits-based decoding
 
 - **Issues Encountered:**
   - Concurrency orchestration within a single worker loop caused potential head-of-line blocking

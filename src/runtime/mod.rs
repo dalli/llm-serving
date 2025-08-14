@@ -4,6 +4,7 @@ use async_trait::async_trait;
 pub mod llama_cpp;
 pub mod dummy;
 pub mod dummy_embedding;
+pub mod sampler;
 
 #[async_trait]
 pub trait LlmRuntime: Send + Sync {

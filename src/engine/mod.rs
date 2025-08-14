@@ -7,10 +7,10 @@ use metrics::{counter, histogram};
 use crate::{
     api::dto::{
         ChatCompletionChunk, ChatCompletionChunkChoice, ChatCompletionRequest,
-        ChatCompletionResponse, ChatCompletionChoice, Delta, ResponseMessage, Usage,
+        ChatCompletionResponse, ChatCompletionChoice, Delta, ResponseMessage, Usage, ChatCompletionContent,
         EmbeddingsRequest, EmbeddingsResponse, EmbeddingObject, EmbeddingUsage,
     },
-    runtime::{dummy::DummyRuntime, dummy_embedding::DummyEmbeddingRuntime, LlmRuntime, EmbeddingRuntime, GenerationOptions},
+    runtime::{dummy::DummyRuntime, dummy_embedding::DummyEmbeddingRuntime, LlmRuntime, EmbeddingRuntime, MultimodalRuntime, GenerationOptions},
 };
 #[cfg(feature = "llama")]
 use crate::runtime::llama_cpp::LlamaCppRuntime;
@@ -20,6 +20,7 @@ use crate::runtime::onnx_embedding::OnnxEmbeddingRuntime;
 pub struct CoreEngine {
     llm_runtimes: Arc<RwLock<HashMap<String, Arc<dyn LlmRuntime>>>>,
     embedding_runtimes: Arc<RwLock<HashMap<String, Arc<dyn EmbeddingRuntime>>>>,
+    multimodal_runtimes: Arc<RwLock<HashMap<String, Arc<dyn MultimodalRuntime>>>>,
     request_sender: mpsc::Sender<EngineRequest>,
     response_cache: Cache<String, ChatCompletionResponse>,
 }
@@ -54,6 +55,14 @@ impl CoreEngine {
                 }
             }
         }
+        // Build multimodal runtimes map alongside LLM map
+        let mut mm_map_init: HashMap<String, Arc<dyn MultimodalRuntime>> = HashMap::new();
+        // Ensure dummy exists in both maps
+        if !llm_map_init.contains_key("dummy-model") {
+            llm_map_init.insert("dummy-model".to_string(), Arc::new(DummyRuntime::new()));
+        }
+        mm_map_init.insert("dummy-model".to_string(), Arc::new(DummyRuntime::new()));
+
         let llm_runtimes: Arc<RwLock<HashMap<String, Arc<dyn LlmRuntime>>>> = Arc::new(RwLock::new(llm_map_init));
 
         // Embedding runtimes
@@ -67,10 +76,12 @@ impl CoreEngine {
             }
         }
         let embedding_runtimes: Arc<RwLock<HashMap<String, Arc<dyn EmbeddingRuntime>>>> = Arc::new(RwLock::new(embed_map_init));
+        let multimodal_runtimes: Arc<RwLock<HashMap<String, Arc<dyn MultimodalRuntime>>>> = Arc::new(RwLock::new(mm_map_init));
 
         // Clone runtimes for the worker pool and wrap in Arc for shared access
         let worker_llm = llm_runtimes.clone();
         let worker_embed = embedding_runtimes.clone();
+        let worker_mm = multimodal_runtimes.clone();
 
         // Configure concurrency limit (ENV: ENGINE_WORKERS), default to available_parallelism or 4
         let workers: usize = std::env::var("ENGINE_WORKERS")
@@ -80,11 +91,12 @@ impl CoreEngine {
             .unwrap_or(4);
         let semaphore = Arc::new(Semaphore::new(workers));
 
-        tokio::spawn(Self::worker_pool(worker_llm, worker_embed, request_receiver, semaphore));
+        tokio::spawn(Self::worker_pool(worker_llm, worker_embed, worker_mm, request_receiver, semaphore));
 
         CoreEngine {
             llm_runtimes,
             embedding_runtimes,
+            multimodal_runtimes,
             request_sender,
             response_cache: Cache::builder()
                 .max_capacity(10_000)
@@ -96,12 +108,14 @@ impl CoreEngine {
     async fn worker_pool(
         llm_runtimes: Arc<RwLock<HashMap<String, Arc<dyn LlmRuntime>>>>,
         embedding_runtimes: Arc<RwLock<HashMap<String, Arc<dyn EmbeddingRuntime>>>>,
+        multimodal_runtimes: Arc<RwLock<HashMap<String, Arc<dyn MultimodalRuntime>>>>,
         mut request_receiver: mpsc::Receiver<EngineRequest>,
         semaphore: Arc<Semaphore>,
     ) {
         while let Some(req) = request_receiver.recv().await {
             let llm_map = llm_runtimes.clone();
             let embed_map = embedding_runtimes.clone();
+            let mm_map = multimodal_runtimes.clone();
             let semaphore_clone = semaphore.clone();
             // Acquire a permit and process the request concurrently
             tokio::spawn(async move {
@@ -115,7 +129,11 @@ impl CoreEngine {
                             map.get(&model_name).cloned()
                         };
                         if let Some(runtime) = runtime_opt {
-                            let prompt = request.messages.last().map(|m| m.content.clone()).unwrap_or_default();
+                            let (prompt, image_urls) = match request.messages.last().map(|m| m.data.clone()) {
+                                Some(ChatCompletionContent::Text { content }) => (content, Vec::new()),
+                                Some(ChatCompletionContent::Vision { content, image_urls }) => (content, image_urls),
+                                None => (String::new(), Vec::new()),
+                            };
                             let gen_opts = GenerationOptions::from_request(request.max_tokens, request.temperature, request.top_p);
 
                             if let Some(stream_tx) = stream_sender {
@@ -137,7 +155,13 @@ impl CoreEngine {
                                 let _ = stream_tx.send(serde_json::to_string(&role_chunk).unwrap()).await;
 
                                 // Generate full text (simple runtime API), then send in one content chunk
-                                let generated = runtime.generate(&prompt, &gen_opts).await.unwrap_or_else(|e| format!("[error: {}]", e));
+                                let generated = if image_urls.is_empty() {
+                                    runtime.generate(&prompt, &gen_opts).await
+                                } else if let Some(mm) = mm_map.read().await.get(&model_name) {
+                                    mm.generate_from_vision(&prompt, &image_urls, &gen_opts).await
+                                } else {
+                                    runtime.generate(&prompt, &gen_opts).await
+                                }.unwrap_or_else(|e| format!("[error: {}]", e));
                                 let content_chunk = ChatCompletionChunk {
                                     id: id.clone(),
                                     object: "chat.completion.chunk".to_string(),
@@ -172,7 +196,13 @@ impl CoreEngine {
                                 );
                             } else if let Some(resp_tx) = response_sender {
                                 let start = std::time::Instant::now();
-                                let generated = runtime.generate(&prompt, &gen_opts).await.unwrap_or_default();
+                                let generated = if image_urls.is_empty() {
+                                    runtime.generate(&prompt, &gen_opts).await.unwrap_or_default()
+                                } else if let Some(mm) = mm_map.read().await.get(&model_name) {
+                                    mm.generate_from_vision(&prompt, &image_urls, &gen_opts).await.unwrap_or_default()
+                                } else {
+                                    runtime.generate(&prompt, &gen_opts).await.unwrap_or_default()
+                                };
                                 let response = ChatCompletionResponse {
                                     id: uuid::Uuid::new_v4().to_string(),
                                     object: "chat.completion".to_string(),
@@ -295,7 +325,15 @@ impl CoreEngine {
         hasher.update(req.model.as_bytes());
         for m in &req.messages {
             hasher.update(m.role.as_bytes());
-            hasher.update(m.content.as_bytes());
+            match &m.data {
+                ChatCompletionContent::Text { content } => {
+                    hasher.update(content.as_bytes());
+                }
+                ChatCompletionContent::Vision { content, image_urls } => {
+                    hasher.update(content.as_bytes());
+                    for url in image_urls { hasher.update(url.as_bytes()); }
+                }
+            }
         }
         if let Some(mt) = req.max_tokens { hasher.update(mt.to_le_bytes()); }
         if let Some(t) = req.temperature { hasher.update(t.to_le_bytes()); }

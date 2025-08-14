@@ -15,9 +15,18 @@ pub struct ChatCompletionRequest {
 }
 
 #[derive(Debug, Deserialize, Serialize, Clone)]
+#[serde(untagged)]
+pub enum ChatCompletionContent {
+    Text { content: String },
+    // Minimal OpenAI-style vision content support
+    Vision { content: String, #[serde(default)] image_urls: Vec<String> },
+}
+
+#[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct ChatCompletionMessage {
     pub role: String,
-    pub content: String,
+    #[serde(flatten)]
+    pub data: ChatCompletionContent,
 }
 
 #[derive(Debug, Serialize, Clone)]

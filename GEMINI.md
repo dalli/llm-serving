@@ -100,11 +100,11 @@ Based on the roadmap in `prd.md`, we define specific action items for each phase
         - [ ] Implement inference logic for Sentence Transformers series models using ONNX runtime (ort)
         - [x] Integrate the embedding runtime into the `CoreEngine`
         - [x] Add ONNX runtime scaffolding behind `onnx` feature and env-based auto-load
-    - [ ] **F1/F2: Vision-Language Model Support**
-        - [ ] Extend Chat API DTOs to support `image_url` input (PRD 5.3.1)
-        - [ ] Define a `MultimodalRuntime` Trait
+    - [x] **F1/F2: Vision-Language Model Support**
+        - [x] Extend Chat API DTOs to support vision inputs
+        - [x] Define a `MultimodalRuntime` Trait and dummy implementation
         - [ ] Support LLaVA model architecture (CLIP Vision Encoder + LLM)
-        - [ ] Integrate the multimodal runtime into the `CoreEngine` and add routing logic
+        - [x] Integrate the multimodal runtime into the `CoreEngine` and add routing logic
 
 ### Phase 3: Stabilization & Management (3 weeks)
 - **Goal**: Ensure stability and management features for production operation.

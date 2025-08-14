@@ -73,6 +73,10 @@
   - F2: Embedding Model Runtime (ONNX scaffolding)
     - Added `onnx` feature and `ort` dependency; created `OnnxEmbeddingRuntime` scaffold
     - Auto-loads via `ONNX_EMBEDDING_MODEL_PATH` env when feature enabled; currently returns zero vectors pending tokenizer/IO wiring
+  - Vision-Language (Multimodal) Support
+    - Extended Chat DTOs to accept vision inputs (content + image_urls)
+    - Added `MultimodalRuntime` trait and integrated dummy implementation via runtime map
+    - Engine routes to multimodal runtime when images are present
 
 - **Issues Encountered:**
   - Concurrency orchestration within a single worker loop caused potential head-of-line blocking
@@ -84,6 +88,7 @@
   - `llama_cpp` crate API mismatch for tokenize/decode across versions
   - Metrics macro usage differences across versions caused compile errors initially
   - ONNX Runtime crate API differences required multiple iterations to compile the builder/session usage
+  - Type erasure challenges when mixing trait objects necessitated dedicated multimodal map rather than downcasting
 - **Solution:**
   - Switched to per-request task spawn with a shared `Semaphore` to bound concurrency, avoiding blocking the receiver loop
   - Used optional fields with serde defaulting to maintain compatibility
@@ -94,6 +99,7 @@
   - Implemented minimal `LlamaCppRuntime` session wiring with safe placeholder generation to keep build green; to be replaced with proper sampling when API stabilizes
   - Fixed metrics macro calls to use current signature (value first, then labels)
   - Iteratively adjusted ORT imports and builder APIs; gated with feature flag to avoid affecting default build
+  - Introduced a dedicated `multimodal_runtimes` map and simple dummy integration for vision requests
 
 - **Retrospective:**
   - **What went well:** Simple, bounded concurrency model improved throughput without complicating the engine interface.

@@ -9,6 +9,16 @@ pub mod sampler;
 pub mod onnx_embedding;
 
 #[async_trait]
+pub trait MultimodalRuntime: Send + Sync {
+    async fn generate_from_vision(
+        &self,
+        text: &str,
+        image_urls: &[String],
+        options: &GenerationOptions,
+    ) -> Result<String, String>;
+}
+
+#[async_trait]
 pub trait LlmRuntime: Send + Sync {
     async fn generate(&self, prompt: &str, options: &GenerationOptions) -> Result<String, String>;
 }

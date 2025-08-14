@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1
 
 # Build binary in a CPU builder image
-FROM rust:1.79-slim-bookworm AS builder
+FROM rust:1.83-slim-bookworm AS builder
 WORKDIR /app
 COPY Cargo.toml Cargo.lock ./
 COPY src ./src

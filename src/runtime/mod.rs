@@ -7,6 +7,8 @@ pub mod dummy_embedding;
 pub mod sampler;
 #[cfg(feature = "onnx")]
 pub mod onnx_embedding;
+#[cfg(feature = "llava")]
+pub mod llava;
 
 #[async_trait]
 pub trait MultimodalRuntime: Send + Sync {

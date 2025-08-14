@@ -77,6 +77,7 @@
     - Extended Chat DTOs to OpenAI-compatible content parts (text/image_url)
     - Added `MultimodalRuntime` trait and integrated dummy implementation via runtime map
     - Engine routes to multimodal runtime when images are present
+    - Added feature-gated `LlavaRuntime` scaffold and env-based auto-registration (`LLAVA_VISION_MODEL_PATH`, `LLAVA_PROJECTION_PATH`, `LLAMA_MODEL_PATH`)
 
 - **Issues Encountered:**
   - Concurrency orchestration within a single worker loop caused potential head-of-line blocking

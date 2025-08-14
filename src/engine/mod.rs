@@ -16,6 +16,8 @@ use crate::{
 use crate::runtime::llama_cpp::LlamaCppRuntime;
 #[cfg(feature = "onnx")]
 use crate::runtime::onnx_embedding::OnnxEmbeddingRuntime;
+#[cfg(feature = "llava")]
+use crate::runtime::llava::LlavaRuntime;
 
 pub struct CoreEngine {
     llm_runtimes: Arc<RwLock<HashMap<String, Arc<dyn LlmRuntime>>>>,
@@ -76,6 +78,18 @@ impl CoreEngine {
             }
         }
         let embedding_runtimes: Arc<RwLock<HashMap<String, Arc<dyn EmbeddingRuntime>>>> = Arc::new(RwLock::new(embed_map_init));
+        #[cfg(feature = "llava")]
+        {
+            if let (Ok(vision), Ok(proj), Ok(llm)) = (
+                std::env::var("LLAVA_VISION_MODEL_PATH"),
+                std::env::var("LLAVA_PROJECTION_PATH"),
+                std::env::var("LLAMA_MODEL_PATH"),
+            ) {
+                if let Ok(rt) = LlavaRuntime::new(&vision, &proj, &llm) {
+                    mm_map_init.insert("llava".to_string(), Arc::new(rt));
+                }
+            }
+        }
         let multimodal_runtimes: Arc<RwLock<HashMap<String, Arc<dyn MultimodalRuntime>>>> = Arc::new(RwLock::new(mm_map_init));
 
         // Clone runtimes for the worker pool and wrap in Arc for shared access

@@ -104,6 +104,7 @@ Based on the roadmap in `prd.md`, we define specific action items for each phase
         - [x] Extend Chat API DTOs to support vision inputs (OpenAI-compatible content parts)
         - [x] Define a `MultimodalRuntime` Trait and dummy implementation
         - [ ] Support LLaVA model architecture (CLIP Vision Encoder + LLM)
+            - [x] Add feature-gated LLaVA runtime scaffold and env-based auto-load
         - [x] Integrate the multimodal runtime into the `CoreEngine` and add routing logic
 
 ### Phase 3: Stabilization & Management (3 weeks)

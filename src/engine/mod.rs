@@ -9,8 +9,9 @@ use crate::{
         ChatCompletionChunk, ChatCompletionChunkChoice, ChatCompletionRequest,
         ChatCompletionResponse, ChatCompletionChoice, Delta, ResponseMessage, Usage, ChatMessageContent, ContentPart,
         EmbeddingsRequest, EmbeddingsResponse, EmbeddingObject, EmbeddingUsage,
+        ImagesGenerationRequest,
     },
-    runtime::{dummy::DummyRuntime, dummy_embedding::DummyEmbeddingRuntime, LlmRuntime, EmbeddingRuntime, MultimodalRuntime, GenerationOptions},
+    runtime::{dummy::DummyRuntime, dummy_embedding::DummyEmbeddingRuntime, LlmRuntime, EmbeddingRuntime, MultimodalRuntime, ImageGenRuntime, GenerationOptions},
 };
 #[cfg(feature = "llama")]
 use crate::runtime::llama_cpp::LlamaCppRuntime;
@@ -23,6 +24,7 @@ pub struct CoreEngine {
     llm_runtimes: Arc<RwLock<HashMap<String, Arc<dyn LlmRuntime>>>>,
     embedding_runtimes: Arc<RwLock<HashMap<String, Arc<dyn EmbeddingRuntime>>>>,
     multimodal_runtimes: Arc<RwLock<HashMap<String, Arc<dyn MultimodalRuntime>>>>,
+    image_runtimes: Arc<RwLock<HashMap<String, Arc<dyn ImageGenRuntime>>>>,
     request_sender: mpsc::Sender<EngineRequest>,
     response_cache: Cache<String, ChatCompletionResponse>,
 }
@@ -36,6 +38,10 @@ pub enum EngineRequest {
     Embeddings {
         request: EmbeddingsRequest,
         response_sender: mpsc::Sender<Result<EmbeddingsResponse, String>>,
+    },
+    Images {
+        request: ImagesGenerationRequest,
+        response_sender: mpsc::Sender<Result<Vec<Vec<u8>>, String>>,
     },
 }
 
@@ -78,6 +84,10 @@ impl CoreEngine {
             }
         }
         let embedding_runtimes: Arc<RwLock<HashMap<String, Arc<dyn EmbeddingRuntime>>>> = Arc::new(RwLock::new(embed_map_init));
+        // Image runtimes (Phase 4 scaffold)
+        let mut img_map_init: HashMap<String, Arc<dyn ImageGenRuntime>> = HashMap::new();
+        img_map_init.insert("dummy-image".to_string(), Arc::new(crate::runtime::dummy_image::DummyImageRuntime::new()));
+        let image_runtimes: Arc<RwLock<HashMap<String, Arc<dyn ImageGenRuntime>>>> = Arc::new(RwLock::new(img_map_init));
         #[cfg(feature = "llava")]
         {
             if let (Ok(vision), Ok(proj), Ok(llm)) = (
@@ -96,6 +106,7 @@ impl CoreEngine {
         let worker_llm = llm_runtimes.clone();
         let worker_embed = embedding_runtimes.clone();
         let worker_mm = multimodal_runtimes.clone();
+        let worker_img = image_runtimes.clone();
 
         // Configure concurrency limit (ENV: ENGINE_WORKERS), default to available_parallelism or 4
         let workers: usize = std::env::var("ENGINE_WORKERS")
@@ -105,12 +116,13 @@ impl CoreEngine {
             .unwrap_or(4);
         let semaphore = Arc::new(Semaphore::new(workers));
 
-        tokio::spawn(Self::worker_pool(worker_llm, worker_embed, worker_mm, request_receiver, semaphore));
+        tokio::spawn(Self::worker_pool(worker_llm, worker_embed, worker_mm, worker_img, request_receiver, semaphore));
 
         CoreEngine {
             llm_runtimes,
             embedding_runtimes,
             multimodal_runtimes,
+            image_runtimes,
             request_sender,
             response_cache: Cache::builder()
                 .max_capacity(10_000)
@@ -123,6 +135,7 @@ impl CoreEngine {
         llm_runtimes: Arc<RwLock<HashMap<String, Arc<dyn LlmRuntime>>>>,
         embedding_runtimes: Arc<RwLock<HashMap<String, Arc<dyn EmbeddingRuntime>>>>,
         multimodal_runtimes: Arc<RwLock<HashMap<String, Arc<dyn MultimodalRuntime>>>>,
+        image_runtimes: Arc<RwLock<HashMap<String, Arc<dyn ImageGenRuntime>>>>,
         mut request_receiver: mpsc::Receiver<EngineRequest>,
         semaphore: Arc<Semaphore>,
     ) {
@@ -130,6 +143,7 @@ impl CoreEngine {
             let llm_map = llm_runtimes.clone();
             let embed_map = embedding_runtimes.clone();
             let mm_map = multimodal_runtimes.clone();
+            let img_map = image_runtimes.clone();
             let semaphore_clone = semaphore.clone();
             // Acquire a permit and process the request concurrently
             tokio::spawn(async move {
@@ -310,6 +324,29 @@ impl CoreEngine {
                             let _ = response_sender.send(Err(format!("Model {} not found", model_name))).await;
                         }
                     }
+                    EngineRequest::Images { request, response_sender } => {
+                        counter!("requests_total", 1, "endpoint" => "images");
+                        let model_name = request.model.clone();
+                        let runtime_opt = {
+                            let map = img_map.read().await;
+                            map.get(&model_name).cloned()
+                        };
+                        if let Some(runtime) = runtime_opt {
+                            let start = std::time::Instant::now();
+                            let n = request.n;
+                            let prompt = request.prompt.clone();
+                            let size = request.size.clone();
+                            let result = runtime.generate_images(&prompt, n, &size).await;
+                            let _ = response_sender.send(result).await;
+                            histogram!(
+                                "request_latency_ms",
+                                start.elapsed().as_millis() as f64,
+                                "endpoint" => "images"
+                            );
+                        } else {
+                            let _ = response_sender.send(Err(format!("Model {} not found", model_name))).await;
+                        }
+                    }
                 }
                 // _permit dropped here, releasing capacity
             });
@@ -393,6 +430,22 @@ impl CoreEngine {
         let (response_sender, mut response_receiver) = mpsc::channel(1);
         self.request_sender
             .send(EngineRequest::Embeddings { request, response_sender })
+            .await
+            .map_err(|e| format!("Failed to send request to engine: {}", e))?;
+
+        response_receiver
+            .recv()
+            .await
+            .ok_or("Engine response channel closed".to_string())?
+    }
+
+    pub async fn process_image_request(
+        &self,
+        request: ImagesGenerationRequest,
+    ) -> Result<Vec<Vec<u8>>, String> {
+        let (response_sender, mut response_receiver) = mpsc::channel(1);
+        self.request_sender
+            .send(EngineRequest::Images { request, response_sender })
             .await
             .map_err(|e| format!("Failed to send request to engine: {}", e))?;
 

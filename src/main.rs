@@ -28,6 +28,7 @@ async fn main() {
     let app = Router::new()
         .route("/v1/chat/completions", post(api::routes::chat_completions))
         .route("/v1/embeddings", post(api::routes::embeddings))
+        .route("/v1/images/generations", post(api::routes::images_generations))
         .route("/admin/models", axum::routing::get(api::routes::admin_models_list))
         .route("/admin/models/load", post(api::routes::admin_models_load))
         .route("/admin/models/unload", post(api::routes::admin_models_unload))

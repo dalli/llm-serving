@@ -11,10 +11,12 @@ use crate::api::{
     dto::{
         ChatCompletionChunk, ChatCompletionChunkChoice, ChatCompletionRequest,
         EmbeddingsRequest, LoadModelRequest, UnloadModelRequest, ModelsListResponse,
+        ImagesGenerationRequest, ImagesGenerationResponse, ImageDataObject,
     },
     error::AppError,
 };
 use crate::engine::CoreEngine; // Import the actual CoreEngine
+use base64::Engine as _; // bring encode into scope
 
 pub async fn chat_completions(
     State(engine): State<Arc<CoreEngine>>,
@@ -48,6 +50,26 @@ pub async fn embeddings(
         Err(e) => Err(AppError::BadRequest(e)),
     }
  }
+
+pub async fn images_generations(
+    State(engine): State<Arc<CoreEngine>>,
+    Json(request): Json<ImagesGenerationRequest>,
+) -> Result<Response, AppError> {
+    match engine.process_image_request(request).await {
+        Ok(images) => {
+            let created = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_secs();
+            let data: Vec<ImageDataObject> = images.into_iter()
+                .map(|bytes| ImageDataObject {
+                    b64_json: Some(base64::engine::general_purpose::STANDARD.encode(bytes)),
+                    url: None,
+                    revised_prompt: None,
+                })
+                .collect();
+            Ok(Json(ImagesGenerationResponse { created, data }).into_response())
+        }
+        Err(e) => Err(AppError::BadRequest(e)),
+    }
+}
 
 pub async fn admin_models_list(
     State(engine): State<Arc<CoreEngine>>,

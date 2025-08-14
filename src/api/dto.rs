@@ -124,6 +124,39 @@ pub struct EmbeddingUsage {
     pub total_tokens: u32,
 }
 
+// ---- Images Generation API ----
+#[derive(Debug, Deserialize)]
+pub struct ImagesGenerationRequest {
+    pub model: String,
+    pub prompt: String,
+    #[serde(default = "default_n")] 
+    pub n: u32,
+    #[serde(default = "default_size")] 
+    pub size: String, // e.g., "512x512"
+    #[serde(default = "default_response_format")] 
+    pub response_format: String, // "b64_json" (default)
+}
+
+fn default_n() -> u32 { 1 }
+fn default_size() -> String { "512x512".to_string() }
+fn default_response_format() -> String { "b64_json".to_string() }
+
+#[derive(Debug, Serialize)]
+pub struct ImagesGenerationResponse {
+    pub created: u64,
+    pub data: Vec<ImageDataObject>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct ImageDataObject {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub b64_json: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub url: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub revised_prompt: Option<String>,
+}
+
 // ---- Admin API (Dynamic Model Management) ----
 #[derive(Debug, Deserialize)]
 pub struct LoadModelRequest {

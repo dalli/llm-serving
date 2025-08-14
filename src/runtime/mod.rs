@@ -9,6 +9,7 @@ pub mod sampler;
 pub mod onnx_embedding;
 #[cfg(feature = "llava")]
 pub mod llava;
+pub mod dummy_image;
 
 #[async_trait]
 pub trait MultimodalRuntime: Send + Sync {
@@ -28,6 +29,11 @@ pub trait LlmRuntime: Send + Sync {
 #[async_trait]
 pub trait EmbeddingRuntime: Send + Sync {
     async fn embed(&self, inputs: &[String]) -> Result<Vec<Vec<f32>>, String>;
+}
+
+#[async_trait]
+pub trait ImageGenRuntime: Send + Sync {
+    async fn generate_images(&self, prompt: &str, n: u32, size: &str) -> Result<Vec<Vec<u8>>, String>;
 }
 
 #[derive(Debug, Clone)]

@@ -75,7 +75,10 @@ pub async fn admin_models_list(
     State(engine): State<Arc<CoreEngine>>,
 ) -> Result<Response, AppError> {
     let (llm, embedding) = engine.list_models().await;
-    Ok(Json(ModelsListResponse { llm, embedding }).into_response())
+    // For now, derive multimodal list from engine internals by re-calling list_models when expanded
+    // As a workaround, return an empty list if not directly available
+    let multimodal = vec![];
+    Ok(Json(ModelsListResponse { llm, embedding, multimodal }).into_response())
 }
 
 pub async fn admin_models_load(

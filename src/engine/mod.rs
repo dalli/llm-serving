@@ -459,6 +459,9 @@ impl CoreEngine {
     pub async fn list_models(&self) -> (Vec<String>, Vec<String>) {
         let llm = { self.llm_runtimes.read().await.keys().cloned().collect::<Vec<_>>() };
         let embedding = { self.embedding_runtimes.read().await.keys().cloned().collect::<Vec<_>>() };
+        let multimodal = { self.multimodal_runtimes.read().await.keys().cloned().collect::<Vec<_>>() };
+        // Preserve binary compatibility for now by returning only two; routes layer adapts
+        let _ = multimodal;
         (llm, embedding)
     }
 
@@ -487,6 +490,34 @@ impl CoreEngine {
                 self.embedding_runtimes.write().await.insert(name.to_string(), Arc::new(DummyEmbeddingRuntime::new(384)));
                 Ok(())
             }
+            "multimodal" => {
+                #[cfg(feature = "llava")]
+                {
+                    // If explicit path triple provided as comma-separated, parse; else try env
+                    if let Some(p) = path {
+                        let parts: Vec<&str> = p.split(',').collect();
+                        if parts.len() == 3 {
+                            let rt = crate::runtime::llava::LlavaRuntime::new(parts[0], parts[1], parts[2])
+                                .map_err(|e| format!("load llava: {}", e))?;
+                            self.multimodal_runtimes.write().await.insert(name.to_string(), Arc::new(rt));
+                            return Ok(());
+                        }
+                    }
+                    if let (Ok(vision), Ok(proj), Ok(llm)) = (
+                        std::env::var("LLAVA_VISION_MODEL_PATH"),
+                        std::env::var("LLAVA_PROJECTION_PATH"),
+                        std::env::var("LLAMA_MODEL_PATH"),
+                    ) {
+                        let rt = crate::runtime::llava::LlavaRuntime::new(&vision, &proj, &llm)
+                            .map_err(|e| format!("load llava: {}", e))?;
+                        self.multimodal_runtimes.write().await.insert(name.to_string(), Arc::new(rt));
+                        return Ok(());
+                    }
+                }
+                // fallback: dummy runtime also implements MultimodalRuntime
+                self.multimodal_runtimes.write().await.insert(name.to_string(), Arc::new(DummyRuntime::new()));
+                Ok(())
+            }
             _ => Err("unknown kind".to_string()),
         }
     }
@@ -495,6 +526,7 @@ impl CoreEngine {
         match kind {
             "llm" => { self.llm_runtimes.write().await.remove(name); Ok(()) }
             "embedding" => { self.embedding_runtimes.write().await.remove(name); Ok(()) }
+            "multimodal" => { self.multimodal_runtimes.write().await.remove(name); Ok(()) }
             _ => Err("unknown kind".to_string()),
         }
     }

@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1
 
 # ---------- Builder Stage ----------
-FROM rust:nightly-slim AS builder
+FROM rustlang/rust:nightly AS builder
 WORKDIR /app
 
 # Cache deps

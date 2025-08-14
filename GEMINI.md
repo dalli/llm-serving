@@ -238,6 +238,19 @@ graph TB
     Monitor --> Engine
 ```
 
+### 4.3 Task Lifecycle Rule (per-task)
+
+- For every task derived from this document:
+  - Complete development and ensure tests pass: `cargo test`.
+  - Update `history.md` with:
+    - Completed work (concise bullets)
+    - Issues encountered
+    - Root cause and solution
+    - Retrospective (what went well, what to improve)
+  - Commit with a message starting with `feat(phase-X):`, `fix(phase-X):`, or `chore(phase-X):` as appropriate.
+  - Push to `origin`.
+  - Optional helper: use `scripts/finish_task.sh` to append a standardized entry.
+
 ### 2.2 기술 스택 (Tech Stack)
 
 | 계층 | 기술 | 버전 | 이유 |

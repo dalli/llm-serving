@@ -54,3 +54,17 @@
 - **Retrospective:**
   - **What went well:** Embeddings API wiring mirrored chat flow, enabling quick integration and testing.
   - **What to improve:** Add real ONNX runtime-backed implementation and token accounting for usage.
+
+## Process Update: Per-task workflow and helper
+
+- **Duration:** 2025-08-14 ~ 2025-08-14
+- **Completed Work:**
+  - Documented per-task rule in `GEMINI.md` (4.3 Task Lifecycle Rule)
+  - Added `scripts/finish_task.sh` to append standardized entries to `history.md`
+- **Issues Encountered:**
+  - CI-based enforcement was considered but deemed unnecessary
+- **Solution:**
+  - Dropped CI enforcement; kept lightweight local script and documentation
+- **Retrospective:**
+  - **What went well:** Lightweight process aligns with local dev flow
+  - **What to improve:** Consider adding a pre-push hook template later if team grows

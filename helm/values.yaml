@@ -10,3 +10,20 @@ service:
 resources: {}
 
 env: {}
+
+hpa:
+  enabled: false
+  minReplicas: 1
+  maxReplicas: 3
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 70
+
+# Example GPU configuration (uncomment and set as needed)
+# resources:
+#   limits:
+#     nvidia.com/gpu: 1

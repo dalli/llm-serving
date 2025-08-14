@@ -138,11 +138,13 @@ impl CoreEngine {
                     EngineRequest::ChatCompletion { request, response_sender, stream_sender } => {
                         counter!("requests_total", 1, "endpoint" => "chat");
                         let model_name = request.model.clone();
-                        let runtime_opt = {
-                            let map = llm_map.read().await;
-                            map.get(&model_name).cloned()
+                        // Lookup both runtimes (LLM and Multimodal) for the given model name
+                        let (llm_runtime_opt, mm_runtime_opt) = {
+                            let llm = llm_map.read().await;
+                            let mm = mm_map.read().await;
+                            (llm.get(&model_name).cloned(), mm.get(&model_name).cloned())
                         };
-                        if let Some(runtime) = runtime_opt {
+                        if llm_runtime_opt.is_some() || mm_runtime_opt.is_some() {
                             let (prompt, image_urls) = match request.messages.last().map(|m| m.content.clone()) {
                                 Some(ChatMessageContent::Text(content)) => (content, Vec::new()),
                                 Some(ChatMessageContent::Parts(parts)) => {
@@ -180,11 +182,20 @@ impl CoreEngine {
 
                                 // Generate full text (simple runtime API), then send in one content chunk
                                 let generated = if image_urls.is_empty() {
-                                    runtime.generate(&prompt, &gen_opts).await
-                                } else if let Some(mm) = mm_map.read().await.get(&model_name) {
-                                    mm.generate_from_vision(&prompt, &image_urls, &gen_opts).await
+                                    if let Some(ref llm_rt) = llm_runtime_opt {
+                                        llm_rt.generate(&prompt, &gen_opts).await
+                                    } else {
+                                        Err("Model requires images".to_string())
+                                    }
                                 } else {
-                                    runtime.generate(&prompt, &gen_opts).await
+                                    if let Some(ref mm_rt) = mm_runtime_opt {
+                                        mm_rt.generate_from_vision(&prompt, &image_urls, &gen_opts).await
+                                    } else if let Some(ref llm_rt) = llm_runtime_opt {
+                                        // Fallback: ignore images if only LLM exists for compatibility
+                                        llm_rt.generate(&prompt, &gen_opts).await
+                                    } else {
+                                        Err("Model not available".to_string())
+                                    }
                                 }.unwrap_or_else(|e| format!("[error: {}]", e));
                                 let content_chunk = ChatCompletionChunk {
                                     id: id.clone(),
@@ -221,11 +232,19 @@ impl CoreEngine {
                             } else if let Some(resp_tx) = response_sender {
                                 let start = std::time::Instant::now();
                                 let generated = if image_urls.is_empty() {
-                                    runtime.generate(&prompt, &gen_opts).await.unwrap_or_default()
-                                } else if let Some(mm) = mm_map.read().await.get(&model_name) {
-                                    mm.generate_from_vision(&prompt, &image_urls, &gen_opts).await.unwrap_or_default()
+                                    if let Some(ref llm_rt) = llm_runtime_opt {
+                                        llm_rt.generate(&prompt, &gen_opts).await.unwrap_or_default()
+                                    } else {
+                                        String::from("[error: Model requires images]")
+                                    }
                                 } else {
-                                    runtime.generate(&prompt, &gen_opts).await.unwrap_or_default()
+                                    if let Some(ref mm_rt) = mm_runtime_opt {
+                                        mm_rt.generate_from_vision(&prompt, &image_urls, &gen_opts).await.unwrap_or_default()
+                                    } else if let Some(ref llm_rt) = llm_runtime_opt {
+                                        llm_rt.generate(&prompt, &gen_opts).await.unwrap_or_default()
+                                    } else {
+                                        String::from("[error: Model not available]")
+                                    }
                                 };
                                 let response = ChatCompletionResponse {
                                     id: uuid::Uuid::new_v4().to_string(),

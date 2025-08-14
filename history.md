@@ -70,9 +70,12 @@
     - Added `metrics`/`metrics-exporter-prometheus`; Prometheus endpoint at `/admin/metrics`
     - Implemented `/health` endpoint
     - Counted requests by endpoint; measured latency; tracked cache hit/miss/store
-  - F2: Embedding Model Runtime (ONNX scaffolding)
-    - Added `onnx` feature and `ort` dependency; created `OnnxEmbeddingRuntime` scaffold
-    - Auto-loads via `ONNX_EMBEDDING_MODEL_PATH` env when feature enabled; currently returns zero vectors pending tokenizer/IO wiring
+  - F2: Embedding Model Runtime (ONNX)
+    - Added tokenizer loading via `ONNX_EMBEDDING_TOKENIZER_PATH` when `onnx_tokenizer` feature is enabled
+    - Implemented ONNX inference path with inputs `input_ids` and `attention_mask`
+    - Added output handling for `[batch, dim]` or `[batch, seq, hidden]` with mean pooling by attention mask
+    - Applied L2 normalization to embeddings; falls back to zero vectors if tokenizer is unavailable
+    - Auto-loads via `ONNX_EMBEDDING_MODEL_PATH` env when feature enabled
   - Vision-Language (Multimodal) Support
     - Extended Chat DTOs to OpenAI-compatible content parts (text/image_url)
     - Added `MultimodalRuntime` trait and integrated dummy implementation via runtime map

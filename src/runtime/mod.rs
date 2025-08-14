@@ -5,6 +5,8 @@ pub mod llama_cpp;
 pub mod dummy;
 pub mod dummy_embedding;
 pub mod sampler;
+#[cfg(feature = "onnx")]
+pub mod onnx_embedding;
 
 #[async_trait]
 pub trait LlmRuntime: Send + Sync {

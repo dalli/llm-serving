@@ -70,6 +70,9 @@
     - Added `metrics`/`metrics-exporter-prometheus`; Prometheus endpoint at `/admin/metrics`
     - Implemented `/health` endpoint
     - Counted requests by endpoint; measured latency; tracked cache hit/miss/store
+  - F2: Embedding Model Runtime (ONNX scaffolding)
+    - Added `onnx` feature and `ort` dependency; created `OnnxEmbeddingRuntime` scaffold
+    - Auto-loads via `ONNX_EMBEDDING_MODEL_PATH` env when feature enabled; currently returns zero vectors pending tokenizer/IO wiring
 
 - **Issues Encountered:**
   - Concurrency orchestration within a single worker loop caused potential head-of-line blocking
@@ -80,6 +83,7 @@
   - Trait change risk across runtimes and engine call sites
   - `llama_cpp` crate API mismatch for tokenize/decode across versions
   - Metrics macro usage differences across versions caused compile errors initially
+  - ONNX Runtime crate API differences required multiple iterations to compile the builder/session usage
 - **Solution:**
   - Switched to per-request task spawn with a shared `Semaphore` to bound concurrency, avoiding blocking the receiver loop
   - Used optional fields with serde defaulting to maintain compatibility
@@ -89,6 +93,7 @@
   - Updated engine to pass `GenerationOptions`, adjusted dummy and llama runtimes accordingly
   - Implemented minimal `LlamaCppRuntime` session wiring with safe placeholder generation to keep build green; to be replaced with proper sampling when API stabilizes
   - Fixed metrics macro calls to use current signature (value first, then labels)
+  - Iteratively adjusted ORT imports and builder APIs; gated with feature flag to avoid affecting default build
 
 - **Retrospective:**
   - **What went well:** Simple, bounded concurrency model improved throughput without complicating the engine interface.

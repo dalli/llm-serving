@@ -14,6 +14,8 @@ use crate::{
 };
 #[cfg(feature = "llama")]
 use crate::runtime::llama_cpp::LlamaCppRuntime;
+#[cfg(feature = "onnx")]
+use crate::runtime::onnx_embedding::OnnxEmbeddingRuntime;
 
 pub struct CoreEngine {
     llm_runtimes: Arc<RwLock<HashMap<String, Arc<dyn LlmRuntime>>>>,
@@ -57,6 +59,13 @@ impl CoreEngine {
         // Embedding runtimes
         let mut embed_map_init: HashMap<String, Arc<dyn EmbeddingRuntime>> = HashMap::new();
         embed_map_init.insert("dummy-embedding".to_string(), Arc::new(DummyEmbeddingRuntime::new(384)));
+        #[cfg(feature = "onnx")]
+        if let Ok(onnx_model) = std::env::var("ONNX_EMBEDDING_MODEL_PATH") {
+            // Dimension should ideally be inferred; keep 384 default
+            if let Ok(rt) = OnnxEmbeddingRuntime::new(&onnx_model, 384) {
+                embed_map_init.insert("onnx-embedding".to_string(), Arc::new(rt));
+            }
+        }
         let embedding_runtimes: Arc<RwLock<HashMap<String, Arc<dyn EmbeddingRuntime>>>> = Arc::new(RwLock::new(embed_map_init));
 
         // Clone runtimes for the worker pool and wrap in Arc for shared access
@@ -331,7 +340,14 @@ impl CoreEngine {
                 Ok(())
             }
             "embedding" => {
-                // placeholder: only dummy for now
+                #[cfg(feature = "onnx")]
+                if let Some(p) = path {
+                    if let Ok(rt) = OnnxEmbeddingRuntime::new(p, 384) {
+                        self.embedding_runtimes.write().await.insert(name.to_string(), Arc::new(rt));
+                        return Ok(());
+                    }
+                }
+                // fallback: dummy
                 self.embedding_runtimes.write().await.insert(name.to_string(), Arc::new(DummyEmbeddingRuntime::new(384)));
                 Ok(())
             }

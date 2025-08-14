@@ -144,12 +144,12 @@ Based on the roadmap in `prd.md`, we define specific action items for each phase
 ### Phase 5: Decentralization (6 weeks)
 - **Goal**: Support scalability in a distributed environment based on Kubernetes.
 - **Detailed Tasks**:
-    - [ ] **F10: Containerization**
-        - [ ] Create a lightweight production Docker image using a multi-stage build
+    - [x] **F10: Containerization**
+        - [x] Create a lightweight production Docker image using a multi-stage build
         - [ ] Include the NVIDIA CUDA runtime in the Docker image for GPU support
     - [ ] **F10: Kubernetes Deployment**
-        - [ ] Create a deployment chart using `Helm` (Deployment, Service, ConfigMap, Secret)
-        - [ ] Configure Liveness/Readiness Probes using the `/health` endpoint
+        - [x] Create a deployment chart using `Helm` (Deployment, Service, ConfigMap, Secret)
+        - [x] Configure Liveness/Readiness Probes using the `/health` endpoint
         - [ ] Set up resource requests and limits for the HPA (Horizontal Pod Autoscaler)
         - [ ] Configure `deployment.yaml` to request and use GPU resources
 

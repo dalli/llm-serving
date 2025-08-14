@@ -1,0 +1,12 @@
+image:
+  repository: ghcr.io/your-org/llm-serving
+  tag: latest
+  pullPolicy: IfNotPresent
+
+service:
+  type: ClusterIP
+  port: 3000
+
+resources: {}
+
+env: {}

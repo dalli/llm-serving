@@ -92,13 +92,13 @@ Based on the roadmap in `prd.md`, we define specific action items for each phase
 ### Phase 2: Multimodal Support (4 weeks)
 - **Goal**: Add support for embedding and vision-language models.
 - **Detailed Tasks**:
-    - [ ] **F1: Implement Embeddings API**
-        - [ ] Define Embeddings API DTOs using `serde` (PRD 5.3.2)
-        - [ ] Implement the `/v1/embeddings` route and handler using `axum`
+    - [x] **F1: Implement Embeddings API**
+        - [x] Define Embeddings API DTOs using `serde` (PRD 5.3.2)
+        - [x] Implement the `/v1/embeddings` route and handler using `axum`
     - [ ] **F2: Embedding Model Runtime**
-        - [ ] Define an `EmbeddingRuntime` Trait
+        - [x] Define an `EmbeddingRuntime` Trait
         - [ ] Implement inference logic for Sentence Transformers series models using ONNX runtime (ort)
-        - [ ] Integrate the embedding runtime into the `CoreEngine`
+        - [x] Integrate the embedding runtime into the `CoreEngine`
     - [ ] **F1/F2: Vision-Language Model Support**
         - [ ] Extend Chat API DTOs to support `image_url` input (PRD 5.3.1)
         - [ ] Define a `MultimodalRuntime` Trait

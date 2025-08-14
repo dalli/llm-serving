@@ -12,7 +12,7 @@ use crate::api::{
     dto::{
         ChatCompletionChunk, ChatCompletionChunkChoice, ChatCompletionRequest,
         ChatCompletionResponse, ChatCompletionChoice, ChatCompletionMessage, Delta,
-        ResponseMessage, Usage,
+        ResponseMessage, Usage, EmbeddingsRequest, EmbeddingsResponse, EmbeddingObject, EmbeddingUsage,
     },
     error::AppError,
 };
@@ -40,3 +40,13 @@ pub async fn chat_completions(
         Ok(Json(response).into_response())
     }
 }
+
+pub async fn embeddings(
+    State(engine): State<Arc<CoreEngine>>,
+    Json(request): Json<EmbeddingsRequest>,
+ ) -> Result<Response, AppError> {
+    match engine.process_embedding_request(request).await {
+        Ok(resp) => Ok(Json(resp).into_response()),
+        Err(e) => Err(AppError::BadRequest(e)),
+    }
+ }

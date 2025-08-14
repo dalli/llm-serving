@@ -34,3 +34,23 @@
 - **Retrospective:**
   - **What went well:** Clear separation of API, engine, and runtime; SSE streaming works; integration tests provided fast correctness checks.
   - **What to improve:** Finalize `LlamaCppRuntime` against the crate’s current API; add token accounting in `usage`; make generation parameters configurable; expand error handling and validation.
+
+## Phase 2: Multimodal Support (in progress)
+
+- **Duration:** 2025-08-14 ~ 2025-08-14
+- **Completed Work:**
+  - F1: Implement Embeddings API
+    - Defined Embeddings API DTOs (`EmbeddingsRequest`, `EmbeddingsResponse`, etc.)
+    - Implemented `/v1/embeddings` route and handler
+  - F2: Embedding Model Runtime
+    - Defined `EmbeddingRuntime` trait
+    - Implemented `DummyEmbeddingRuntime` (deterministic, normalized vectors) and integrated into `CoreEngine`
+  - Tests
+    - Added integration test to validate `/v1/embeddings` returns a list with two embeddings
+
+- **Issues Encountered:**
+  - None yet
+
+- **Retrospective:**
+  - **What went well:** Embeddings API wiring mirrored chat flow, enabling quick integration and testing.
+  - **What to improve:** Add real ONNX runtime-backed implementation and token accounting for usage.

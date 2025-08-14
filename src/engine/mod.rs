@@ -5,14 +5,16 @@ use crate::{
     api::dto::{
         ChatCompletionChunk, ChatCompletionChunkChoice, ChatCompletionRequest,
         ChatCompletionResponse, ChatCompletionChoice, Delta, ResponseMessage, Usage,
+        EmbeddingsRequest, EmbeddingsResponse, EmbeddingObject, EmbeddingUsage,
     },
-    runtime::{dummy::DummyRuntime, LlmRuntime},
+    runtime::{dummy::DummyRuntime, dummy_embedding::DummyEmbeddingRuntime, LlmRuntime, EmbeddingRuntime},
 };
 #[cfg(feature = "llama")]
 use crate::runtime::llama_cpp::LlamaCppRuntime;
 
 pub struct CoreEngine {
     llm_runtimes: HashMap<String, Arc<dyn LlmRuntime>>,
+    embedding_runtimes: HashMap<String, Arc<dyn EmbeddingRuntime>>,
     request_sender: mpsc::Sender<EngineRequest>,
 }
 
@@ -21,6 +23,10 @@ pub enum EngineRequest {
         request: ChatCompletionRequest,
         response_sender: Option<mpsc::Sender<Result<ChatCompletionResponse, String>>>,
         stream_sender: Option<mpsc::Sender<String>>,
+    },
+    Embeddings {
+        request: EmbeddingsRequest,
+        response_sender: mpsc::Sender<Result<EmbeddingsResponse, String>>,
     },
 }
 
@@ -43,19 +49,26 @@ impl CoreEngine {
             }
         }
 
-        // Clone runtimes for the worker pool
-        let worker_runtimes = llm_runtimes.clone();
+        // Embedding runtimes
+        let mut embedding_runtimes: HashMap<String, Arc<dyn EmbeddingRuntime>> = HashMap::new();
+        embedding_runtimes.insert("dummy-embedding".to_string(), Arc::new(DummyEmbeddingRuntime::new(384)));
 
-        tokio::spawn(Self::worker_pool(worker_runtimes, request_receiver));
+        // Clone runtimes for the worker pool
+        let worker_llm = llm_runtimes.clone();
+        let worker_embed = embedding_runtimes.clone();
+
+        tokio::spawn(Self::worker_pool(worker_llm, worker_embed, request_receiver));
 
         CoreEngine {
             llm_runtimes,
+            embedding_runtimes,
             request_sender,
         }
     }
 
     async fn worker_pool(
         llm_runtimes: HashMap<String, Arc<dyn LlmRuntime>>,
+        embedding_runtimes: HashMap<String, Arc<dyn EmbeddingRuntime>>,
         mut request_receiver: mpsc::Receiver<EngineRequest>,
     ) {
         while let Some(req) = request_receiver.recv().await {
@@ -142,6 +155,32 @@ impl CoreEngine {
                         }
                     }
                 }
+                EngineRequest::Embeddings { request, response_sender } => {
+                    let model_name = request.model.clone();
+                    if let Some(runtime) = embedding_runtimes.get(&model_name) {
+                        let inputs = request.input.clone();
+                        let result = runtime.embed(&inputs).await;
+                        match result {
+                            Ok(vectors) => {
+                                let data: Vec<EmbeddingObject> = vectors
+                                    .into_iter()
+                                    .enumerate()
+                                    .map(|(i, v)| EmbeddingObject { object: "embedding".to_string(), index: i, embedding: v })
+                                    .collect();
+                                let response = EmbeddingsResponse {
+                                    data,
+                                    model: model_name,
+                                    object: "list".to_string(),
+                                    usage: EmbeddingUsage { prompt_tokens: 0, total_tokens: 0 },
+                                };
+                                let _ = response_sender.send(Ok(response)).await;
+                            }
+                            Err(e) => { let _ = response_sender.send(Err(e)).await; }
+                        }
+                    } else {
+                        let _ = response_sender.send(Err(format!("Model {} not found", model_name))).await;
+                    }
+                }
             }
         }
     }
@@ -171,5 +210,21 @@ impl CoreEngine {
             // The response is sent via the stream_sender
             Err("Streaming response handled via sender".to_string())
         }
+    }
+
+    pub async fn process_embedding_request(
+        &self,
+        request: EmbeddingsRequest,
+    ) -> Result<EmbeddingsResponse, String> {
+        let (response_sender, mut response_receiver) = mpsc::channel(1);
+        self.request_sender
+            .send(EngineRequest::Embeddings { request, response_sender })
+            .await
+            .map_err(|e| format!("Failed to send request to engine: {}", e))?;
+
+        response_receiver
+            .recv()
+            .await
+            .ok_or("Engine response channel closed".to_string())?
     }
 }

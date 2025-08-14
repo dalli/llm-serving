@@ -23,6 +23,7 @@ async fn main() {
 
     let app = Router::new()
         .route("/v1/chat/completions", post(api::routes::chat_completions))
+        .route("/v1/embeddings", post(api::routes::embeddings))
         .with_state(engine);
 
     let listener = TcpListener::bind("0.0.0.0:3000").await.unwrap();

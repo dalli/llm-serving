@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1
 
 # ---------- Builder Stage ----------
-FROM rust:1.83-slim-bookworm AS builder
+FROM rust:nightly-slim AS builder
 WORKDIR /app
 
 # Cache deps

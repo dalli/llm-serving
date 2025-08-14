@@ -91,8 +91,8 @@ impl CoreEngine {
                     EngineRequest::ChatCompletion { request, response_sender, stream_sender } => {
                         let model_name = request.model.clone();
                         if let Some(runtime) = llm_map.get(&model_name) {
-                            let prompt = request.messages.last().map(|m| m.content.clone()).unwrap_or_default();
-                            let max_tokens = 100; // TODO: make configurable
+                        let prompt = request.messages.last().map(|m| m.content.clone()).unwrap_or_default();
+                        let max_tokens = request.max_tokens.unwrap_or(100);
 
                             if let Some(stream_tx) = stream_sender {
                                 // Stream role first

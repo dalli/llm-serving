@@ -50,15 +50,20 @@
   - F3: Core Engine & Concurrency
     - Added semaphore-limited Tokio worker pool to process requests concurrently (config via `ENGINE_WORKERS`)
     - Refactored worker to spawn per request while preserving backpressure via channel + semaphore
+  - F1: Generation parameters
+    - Extended `ChatCompletionRequest` with `max_tokens`, `temperature`, `top_p`
+    - Engine applies `max_tokens` to runtime generation; tests updated
 
 - **Issues Encountered:**
   - Concurrency orchestration within a single worker loop caused potential head-of-line blocking
+  - Backward compatibility risk when adding new request fields
 - **Solution:**
   - Switched to per-request task spawn with a shared `Semaphore` to bound concurrency, avoiding blocking the receiver loop
+  - Used optional fields with serde defaulting to maintain compatibility
 
 - **Retrospective:**
   - **What went well:** Simple, bounded concurrency model improved throughput without complicating the engine interface.
-  - **What to improve:** Add graceful shutdown and drain logic; expose concurrency in config; add per-model concurrency limits.
+  - **What to improve:** Add graceful shutdown and drain logic; expose concurrency in config; add per-model concurrency limits; wire `temperature/top_p` through runtimes when supported.
 
 ## Process Update: Per-task workflow and helper
 

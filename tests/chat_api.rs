@@ -21,7 +21,8 @@ async fn chat_completions_non_stream_returns_json() {
     let payload = json!({
         "model": "dummy-model",
         "messages": [{"role": "user", "content": "hello"}],
-        "stream": false
+        "stream": false,
+        "max_tokens": 3
     });
 
     let request = Request::builder()
@@ -42,7 +43,10 @@ async fn chat_completions_non_stream_returns_json() {
     assert_eq!(v["model"], "dummy-model");
     assert!(v["id"].as_str().is_some());
     let content = &v["choices"][0]["message"]["content"];
-    assert!(content.as_str().unwrap_or("").starts_with("Echo:"));
+    let s = content.as_str().unwrap_or("");
+    assert!(s.starts_with("Echo:"));
+    // Should be short due to max_tokens
+    assert!(s.len() <= "Echo: ".len() + 3);
 }
 
 #[tokio::test]

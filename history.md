@@ -47,13 +47,18 @@
     - Implemented `DummyEmbeddingRuntime` (deterministic, normalized vectors) and integrated into `CoreEngine`
   - Tests
     - Added integration test to validate `/v1/embeddings` returns a list with two embeddings
+  - F3: Core Engine & Concurrency
+    - Added semaphore-limited Tokio worker pool to process requests concurrently (config via `ENGINE_WORKERS`)
+    - Refactored worker to spawn per request while preserving backpressure via channel + semaphore
 
 - **Issues Encountered:**
-  - None yet
+  - Concurrency orchestration within a single worker loop caused potential head-of-line blocking
+- **Solution:**
+  - Switched to per-request task spawn with a shared `Semaphore` to bound concurrency, avoiding blocking the receiver loop
 
 - **Retrospective:**
-  - **What went well:** Embeddings API wiring mirrored chat flow, enabling quick integration and testing.
-  - **What to improve:** Add real ONNX runtime-backed implementation and token accounting for usage.
+  - **What went well:** Simple, bounded concurrency model improved throughput without complicating the engine interface.
+  - **What to improve:** Add graceful shutdown and drain logic; expose concurrency in config; add per-model concurrency limits.
 
 ## Process Update: Per-task workflow and helper
 

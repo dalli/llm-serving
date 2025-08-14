@@ -1,5 +1,5 @@
 use std::{collections::HashMap, sync::Arc};
-use tokio::sync::mpsc;
+use tokio::sync::{mpsc, Semaphore};
 
 use crate::{
     api::dto::{
@@ -53,11 +53,19 @@ impl CoreEngine {
         let mut embedding_runtimes: HashMap<String, Arc<dyn EmbeddingRuntime>> = HashMap::new();
         embedding_runtimes.insert("dummy-embedding".to_string(), Arc::new(DummyEmbeddingRuntime::new(384)));
 
-        // Clone runtimes for the worker pool
-        let worker_llm = llm_runtimes.clone();
-        let worker_embed = embedding_runtimes.clone();
+        // Clone runtimes for the worker pool and wrap in Arc for shared access
+        let worker_llm = Arc::new(llm_runtimes.clone());
+        let worker_embed = Arc::new(embedding_runtimes.clone());
 
-        tokio::spawn(Self::worker_pool(worker_llm, worker_embed, request_receiver));
+        // Configure concurrency limit (ENV: ENGINE_WORKERS), default to available_parallelism or 4
+        let workers: usize = std::env::var("ENGINE_WORKERS")
+            .ok()
+            .and_then(|v| v.parse().ok())
+            .or_else(|| std::thread::available_parallelism().ok().map(|n| n.get()))
+            .unwrap_or(4);
+        let semaphore = Arc::new(Semaphore::new(workers));
+
+        tokio::spawn(Self::worker_pool(worker_llm, worker_embed, request_receiver, semaphore));
 
         CoreEngine {
             llm_runtimes,
@@ -67,121 +75,124 @@ impl CoreEngine {
     }
 
     async fn worker_pool(
-        llm_runtimes: HashMap<String, Arc<dyn LlmRuntime>>,
-        embedding_runtimes: HashMap<String, Arc<dyn EmbeddingRuntime>>,
+        llm_runtimes: Arc<HashMap<String, Arc<dyn LlmRuntime>>>,
+        embedding_runtimes: Arc<HashMap<String, Arc<dyn EmbeddingRuntime>>>,
         mut request_receiver: mpsc::Receiver<EngineRequest>,
+        semaphore: Arc<Semaphore>,
     ) {
         while let Some(req) = request_receiver.recv().await {
-            match req {
-                EngineRequest::ChatCompletion {
-                    request,
-                    response_sender,
-                    stream_sender,
-                } => {
-                    let model_name = request.model.clone();
-                    if let Some(runtime) = llm_runtimes.get(&model_name) {
-                        let prompt = request.messages.last().map(|m| m.content.clone()).unwrap_or_default();
-                        let max_tokens = 100; // TODO: make configurable
+            let llm_map = llm_runtimes.clone();
+            let embed_map = embedding_runtimes.clone();
+            let semaphore_clone = semaphore.clone();
+            // Acquire a permit and process the request concurrently
+            tokio::spawn(async move {
+                let _permit = semaphore_clone.acquire_owned().await.expect("semaphore closed");
+                match req {
+                    EngineRequest::ChatCompletion { request, response_sender, stream_sender } => {
+                        let model_name = request.model.clone();
+                        if let Some(runtime) = llm_map.get(&model_name) {
+                            let prompt = request.messages.last().map(|m| m.content.clone()).unwrap_or_default();
+                            let max_tokens = 100; // TODO: make configurable
 
-                        if let Some(stream_tx) = stream_sender {
-                            // Stream role first
-                            let id = uuid::Uuid::new_v4().to_string();
-                            let created = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_secs();
-                            let role_chunk = ChatCompletionChunk {
-                                id: id.clone(),
-                                object: "chat.completion.chunk".to_string(),
-                                created,
-                                model: model_name.clone(),
-                                choices: vec![ChatCompletionChunkChoice {
-                                    index: 0,
-                                    delta: Delta { role: Some("assistant".to_string()), content: None },
-                                    finish_reason: None,
-                                }],
-                            };
-                            let _ = stream_tx.send(serde_json::to_string(&role_chunk).unwrap()).await;
+                            if let Some(stream_tx) = stream_sender {
+                                // Stream role first
+                                let id = uuid::Uuid::new_v4().to_string();
+                                let created = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_secs();
+                                let role_chunk = ChatCompletionChunk {
+                                    id: id.clone(),
+                                    object: "chat.completion.chunk".to_string(),
+                                    created,
+                                    model: model_name.clone(),
+                                    choices: vec![ChatCompletionChunkChoice {
+                                        index: 0,
+                                        delta: Delta { role: Some("assistant".to_string()), content: None },
+                                        finish_reason: None,
+                                    }],
+                                };
+                                let _ = stream_tx.send(serde_json::to_string(&role_chunk).unwrap()).await;
 
-                            // Generate full text (simple runtime API), then send in one content chunk
-                            let generated = runtime.generate(&prompt, max_tokens).await.unwrap_or_else(|e| format!("[error: {}]", e));
-                            let content_chunk = ChatCompletionChunk {
-                                id: id.clone(),
-                                object: "chat.completion.chunk".to_string(),
-                                created,
-                                model: model_name.clone(),
-                                choices: vec![ChatCompletionChunkChoice {
-                                    index: 0,
-                                    delta: Delta { role: None, content: Some(generated) },
-                                    finish_reason: None,
-                                }],
-                            };
-                            let _ = stream_tx.send(serde_json::to_string(&content_chunk).unwrap()).await;
+                                // Generate full text (simple runtime API), then send in one content chunk
+                                let generated = runtime.generate(&prompt, max_tokens).await.unwrap_or_else(|e| format!("[error: {}]", e));
+                                let content_chunk = ChatCompletionChunk {
+                                    id: id.clone(),
+                                    object: "chat.completion.chunk".to_string(),
+                                    created,
+                                    model: model_name.clone(),
+                                    choices: vec![ChatCompletionChunkChoice {
+                                        index: 0,
+                                        delta: Delta { role: None, content: Some(generated) },
+                                        finish_reason: None,
+                                    }],
+                                };
+                                let _ = stream_tx.send(serde_json::to_string(&content_chunk).unwrap()).await;
 
-                            let done_chunk = ChatCompletionChunk {
-                                id: id.clone(),
-                                object: "chat.completion.chunk".to_string(),
-                                created,
-                                model: model_name.clone(),
-                                choices: vec![ChatCompletionChunkChoice {
-                                    index: 0,
-                                    delta: Delta { role: None, content: None },
-                                    finish_reason: Some("stop".to_string()),
-                                }],
-                            };
-                            let _ = stream_tx.send(serde_json::to_string(&done_chunk).unwrap()).await;
-                            // Optional: client often expects a [DONE] sentinel per OpenAI semantics
-                            let _ = stream_tx.send("[DONE]".to_string()).await;
+                                let done_chunk = ChatCompletionChunk {
+                                    id: id.clone(),
+                                    object: "chat.completion.chunk".to_string(),
+                                    created,
+                                    model: model_name.clone(),
+                                    choices: vec![ChatCompletionChunkChoice {
+                                        index: 0,
+                                        delta: Delta { role: None, content: None },
+                                        finish_reason: Some("stop".to_string()),
+                                    }],
+                                };
+                                let _ = stream_tx.send(serde_json::to_string(&done_chunk).unwrap()).await;
+                                // Optional: client often expects a [DONE] sentinel per OpenAI semantics
+                                let _ = stream_tx.send("[DONE]".to_string()).await;
+                            } else if let Some(resp_tx) = response_sender {
+                                let generated = runtime.generate(&prompt, max_tokens).await.unwrap_or_default();
+                                let response = ChatCompletionResponse {
+                                    id: uuid::Uuid::new_v4().to_string(),
+                                    object: "chat.completion".to_string(),
+                                    created: std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_secs(),
+                                    model: model_name,
+                                    choices: vec![ChatCompletionChoice {
+                                        index: 0,
+                                        message: ResponseMessage { role: "assistant".to_string(), content: generated.clone() },
+                                        finish_reason: "stop".to_string(),
+                                    }],
+                                    usage: Usage {
+                                        prompt_tokens: 0,
+                                        completion_tokens: 0,
+                                        total_tokens: 0,
+                                    },
+                                };
+                                let _ = resp_tx.send(Ok(response)).await;
+                            }
                         } else if let Some(resp_tx) = response_sender {
-                            let generated = runtime.generate(&prompt, max_tokens).await.unwrap_or_default();
-                            let response = ChatCompletionResponse {
-                                id: uuid::Uuid::new_v4().to_string(),
-                                object: "chat.completion".to_string(),
-                                created: std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_secs(),
-                                model: model_name,
-                                choices: vec![ChatCompletionChoice {
-                                    index: 0,
-                                    message: ResponseMessage { role: "assistant".to_string(), content: generated.clone() },
-                                    finish_reason: "stop".to_string(),
-                                }],
-                                usage: Usage {
-                                    prompt_tokens: 0,
-                                    completion_tokens: 0,
-                                    total_tokens: 0,
-                                },
-                            };
-                            let _ = resp_tx.send(Ok(response)).await;
-                        }
-                    } else {
-                        if let Some(resp_tx) = response_sender {
                             let _ = resp_tx.send(Err(format!("Model {} not found", model_name))).await;
                         }
                     }
-                }
-                EngineRequest::Embeddings { request, response_sender } => {
-                    let model_name = request.model.clone();
-                    if let Some(runtime) = embedding_runtimes.get(&model_name) {
-                        let inputs = request.input.clone();
-                        let result = runtime.embed(&inputs).await;
-                        match result {
-                            Ok(vectors) => {
-                                let data: Vec<EmbeddingObject> = vectors
-                                    .into_iter()
-                                    .enumerate()
-                                    .map(|(i, v)| EmbeddingObject { object: "embedding".to_string(), index: i, embedding: v })
-                                    .collect();
-                                let response = EmbeddingsResponse {
-                                    data,
-                                    model: model_name,
-                                    object: "list".to_string(),
-                                    usage: EmbeddingUsage { prompt_tokens: 0, total_tokens: 0 },
-                                };
-                                let _ = response_sender.send(Ok(response)).await;
+                    EngineRequest::Embeddings { request, response_sender } => {
+                        let model_name = request.model.clone();
+                        if let Some(runtime) = embed_map.get(&model_name) {
+                            let inputs = request.input.clone();
+                            let result = runtime.embed(&inputs).await;
+                            match result {
+                                Ok(vectors) => {
+                                    let data: Vec<EmbeddingObject> = vectors
+                                        .into_iter()
+                                        .enumerate()
+                                        .map(|(i, v)| EmbeddingObject { object: "embedding".to_string(), index: i, embedding: v })
+                                        .collect();
+                                    let response = EmbeddingsResponse {
+                                        data,
+                                        model: model_name,
+                                        object: "list".to_string(),
+                                        usage: EmbeddingUsage { prompt_tokens: 0, total_tokens: 0 },
+                                    };
+                                    let _ = response_sender.send(Ok(response)).await;
+                                }
+                                Err(e) => { let _ = response_sender.send(Err(e)).await; }
                             }
-                            Err(e) => { let _ = response_sender.send(Err(e)).await; }
+                        } else {
+                            let _ = response_sender.send(Err(format!("Model {} not found", model_name))).await;
                         }
-                    } else {
-                        let _ = response_sender.send(Err(format!("Model {} not found", model_name))).await;
                     }
                 }
-            }
+                // _permit dropped here, releasing capacity
+            });
         }
     }
 

@@ -83,10 +83,10 @@ Based on the roadmap in `prd.md`, we define specific action items for each phase
         - [ ] Implement `LlamaCppRuntime` using `llama.cpp` Rust bindings
         - [ ] Implement GGUF/GGML model file loading and memory mapping
         - [x] Implement text generation logic for input prompts
-    - [ ] **F3: Core Engine & Concurrency**
+    - [x] **F3: Core Engine & Concurrency**
         - [x] Define the `CoreEngine` struct for managing model runtimes
         - [x] Implement a request queue using `tokio::mpsc` channel
-        - [ ] Implement a Tokio task worker pool to process requests concurrently
+        - [x] Implement a Tokio task worker pool to process requests concurrently
         - [x] Integrate the API handler with the core engine
 
 ### Phase 2: Multimodal Support (4 weeks)

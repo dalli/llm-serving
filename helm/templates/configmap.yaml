@@ -1,0 +1,10 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: llm-serving-config
+  labels:
+    app: llm-serving
+data:
+{{- range $key, $value := .Values.env }}
+  {{ $key }}: "{{ $value }}"
+{{- end }}

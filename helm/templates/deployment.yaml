@@ -21,6 +21,9 @@ spec:
           env:
             - name: RUST_LOG
               value: info
+          envFrom:
+            - configMapRef:
+                name: llm-serving-config
           livenessProbe:
             httpGet:
               path: /health

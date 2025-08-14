@@ -1,7 +1,8 @@
-use rand::{rngs::StdRng, SeedableRng, Rng as RandRng};
+use rand::{rngs::StdRng, Rng as RandRng};
 
 /// Top-p (nucleus) + temperature sampling over a vector of token logits.
 /// This is a generic helper intended to be used by runtimes that can expose logits.
+#[allow(dead_code)]
 pub fn sample_token_index_from_logits(
     logits: &[f32],
     temperature: f32,

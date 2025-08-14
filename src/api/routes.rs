@@ -3,17 +3,14 @@ use axum::{
     response::{sse::Event, IntoResponse, Response, Sse},
     Json,
 };
-use futures::StreamExt; // Import StreamExt
-use std::{convert::Infallible, sync::Arc, time::{SystemTime, UNIX_EPOCH}};
+use futures::StreamExt;
+use std::{convert::Infallible, sync::Arc};
 use tokio::sync::mpsc;
-use uuid::Uuid;
 
 use crate::api::{
     dto::{
         ChatCompletionChunk, ChatCompletionChunkChoice, ChatCompletionRequest,
-        ChatCompletionResponse, ChatCompletionChoice, ChatCompletionMessage, Delta,
-        ResponseMessage, Usage, EmbeddingsRequest, EmbeddingsResponse, EmbeddingObject, EmbeddingUsage,
-        LoadModelRequest, UnloadModelRequest, ModelsListResponse,
+        EmbeddingsRequest, LoadModelRequest, UnloadModelRequest, ModelsListResponse,
     },
     error::AppError,
 };

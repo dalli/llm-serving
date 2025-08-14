@@ -16,6 +16,9 @@ async fn chat_completions_non_stream_returns_json() {
     let app = Router::new()
         .route("/v1/chat/completions", post(chat_completions))
         .route("/v1/embeddings", post(embeddings))
+        .route("/admin/models", axum::routing::get(llm_serving::api::routes::admin_models_list))
+        .route("/admin/models/load", post(llm_serving::api::routes::admin_models_load))
+        .route("/admin/models/unload", post(llm_serving::api::routes::admin_models_unload))
         .with_state(engine);
 
     let payload = json!({

@@ -56,19 +56,25 @@
   - F4: Response Caching
     - Added `moka` cache with TTL and capacity; keyed by request hash
     - Cached non-streaming chat responses; preserved streaming semantics
+  - F5: Dynamic Model Management
+    - Refactored runtimes to `Arc<RwLock<HashMap<...>>>` for dynamic updates
+    - Added admin endpoints: `GET /admin/models`, `POST /admin/models/load`, `POST /admin/models/unload`
+    - Implemented load/unload helpers in engine; kept dummy fallbacks
 
 - **Issues Encountered:**
   - Concurrency orchestration within a single worker loop caused potential head-of-line blocking
   - Backward compatibility risk when adding new request fields
   - Cache get is async in `moka::future`; initial code missed `.await`
+  - Sharing runtimes across workers and admin mutations required read/write synchronization
 - **Solution:**
   - Switched to per-request task spawn with a shared `Semaphore` to bound concurrency, avoiding blocking the receiver loop
   - Used optional fields with serde defaulting to maintain compatibility
   - Fixed by awaiting cache get and cloning response for insertion
+  - Used `RwLock` to allow concurrent read access and exclusive writes during model changes
 
 - **Retrospective:**
   - **What went well:** Simple, bounded concurrency model improved throughput without complicating the engine interface.
-  - **What to improve:** Add graceful shutdown and drain logic; expose concurrency in config; add per-model concurrency limits; wire `temperature/top_p` through runtimes; add cache invalidation controls and metrics.
+  - **What to improve:** Add graceful shutdown and drain logic; expose concurrency in config; add per-model concurrency limits; wire `temperature/top_p` through runtimes; add cache invalidation controls and metrics; persist model configs.
 
 ## Process Update: Per-task workflow and helper
 

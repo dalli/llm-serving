@@ -13,6 +13,7 @@ use crate::api::{
         ChatCompletionChunk, ChatCompletionChunkChoice, ChatCompletionRequest,
         ChatCompletionResponse, ChatCompletionChoice, ChatCompletionMessage, Delta,
         ResponseMessage, Usage, EmbeddingsRequest, EmbeddingsResponse, EmbeddingObject, EmbeddingUsage,
+        LoadModelRequest, UnloadModelRequest, ModelsListResponse,
     },
     error::AppError,
 };
@@ -50,3 +51,28 @@ pub async fn embeddings(
         Err(e) => Err(AppError::BadRequest(e)),
     }
  }
+
+pub async fn admin_models_list(
+    State(engine): State<Arc<CoreEngine>>,
+) -> Result<Response, AppError> {
+    let (llm, embedding) = engine.list_models().await;
+    Ok(Json(ModelsListResponse { llm, embedding }).into_response())
+}
+
+pub async fn admin_models_load(
+    State(engine): State<Arc<CoreEngine>>,
+    Json(req): Json<LoadModelRequest>,
+) -> Result<Response, AppError> {
+    engine.load_model(&req.kind, &req.model, req.path.as_deref()).await
+        .map_err(AppError::BadRequest)?;
+    Ok(Json(serde_json::json!({"status":"ok"})).into_response())
+}
+
+pub async fn admin_models_unload(
+    State(engine): State<Arc<CoreEngine>>,
+    Json(req): Json<UnloadModelRequest>,
+) -> Result<Response, AppError> {
+    engine.unload_model(&req.kind, &req.model).await
+        .map_err(AppError::BadRequest)?;
+    Ok(Json(serde_json::json!({"status":"ok"})).into_response())
+}

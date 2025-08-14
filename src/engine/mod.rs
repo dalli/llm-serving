@@ -1,5 +1,5 @@
 use std::{collections::HashMap, sync::Arc};
-use tokio::sync::{mpsc, Semaphore};
+use tokio::sync::{mpsc, Semaphore, RwLock};
 use moka::future::Cache;
 use sha2::{Digest, Sha256};
 
@@ -15,8 +15,8 @@ use crate::{
 use crate::runtime::llama_cpp::LlamaCppRuntime;
 
 pub struct CoreEngine {
-    llm_runtimes: HashMap<String, Arc<dyn LlmRuntime>>,
-    embedding_runtimes: HashMap<String, Arc<dyn EmbeddingRuntime>>,
+    llm_runtimes: Arc<RwLock<HashMap<String, Arc<dyn LlmRuntime>>>>,
+    embedding_runtimes: Arc<RwLock<HashMap<String, Arc<dyn EmbeddingRuntime>>>>,
     request_sender: mpsc::Sender<EngineRequest>,
     response_cache: Cache<String, ChatCompletionResponse>,
 }
@@ -37,28 +37,30 @@ impl CoreEngine {
     pub fn new() -> Self {
         let (request_sender, request_receiver) = mpsc::channel(100); // Channel for incoming requests
 
-        let mut llm_runtimes: HashMap<String, Arc<dyn LlmRuntime>> = HashMap::new();
+        let mut llm_map_init: HashMap<String, Arc<dyn LlmRuntime>> = HashMap::new();
         // Always have a fallback dummy runtime for development
-        llm_runtimes.insert("dummy-model".to_string(), Arc::new(DummyRuntime::new()));
+        llm_map_init.insert("dummy-model".to_string(), Arc::new(DummyRuntime::new()));
         // Attempt to load a real llama.cpp runtime if a valid path is provided via env
         #[cfg(feature = "llama")]
         {
             if let Ok(model_path) = std::env::var("LLAMA_MODEL_PATH") {
                 if let Ok(llama_runtime) = LlamaCppRuntime::new(&model_path) {
-                    llm_runtimes.insert("llama-cpp".to_string(), Arc::new(llama_runtime));
+                    llm_map_init.insert("llama-cpp".to_string(), Arc::new(llama_runtime));
                 } else {
                     eprintln!("Failed to load LlamaCppRuntime from LLAMA_MODEL_PATH; continuing with dummy-model.");
                 }
             }
         }
+        let llm_runtimes: Arc<RwLock<HashMap<String, Arc<dyn LlmRuntime>>>> = Arc::new(RwLock::new(llm_map_init));
 
         // Embedding runtimes
-        let mut embedding_runtimes: HashMap<String, Arc<dyn EmbeddingRuntime>> = HashMap::new();
-        embedding_runtimes.insert("dummy-embedding".to_string(), Arc::new(DummyEmbeddingRuntime::new(384)));
+        let mut embed_map_init: HashMap<String, Arc<dyn EmbeddingRuntime>> = HashMap::new();
+        embed_map_init.insert("dummy-embedding".to_string(), Arc::new(DummyEmbeddingRuntime::new(384)));
+        let embedding_runtimes: Arc<RwLock<HashMap<String, Arc<dyn EmbeddingRuntime>>>> = Arc::new(RwLock::new(embed_map_init));
 
         // Clone runtimes for the worker pool and wrap in Arc for shared access
-        let worker_llm = Arc::new(llm_runtimes.clone());
-        let worker_embed = Arc::new(embedding_runtimes.clone());
+        let worker_llm = llm_runtimes.clone();
+        let worker_embed = embedding_runtimes.clone();
 
         // Configure concurrency limit (ENV: ENGINE_WORKERS), default to available_parallelism or 4
         let workers: usize = std::env::var("ENGINE_WORKERS")
@@ -82,8 +84,8 @@ impl CoreEngine {
     }
 
     async fn worker_pool(
-        llm_runtimes: Arc<HashMap<String, Arc<dyn LlmRuntime>>>,
-        embedding_runtimes: Arc<HashMap<String, Arc<dyn EmbeddingRuntime>>>,
+        llm_runtimes: Arc<RwLock<HashMap<String, Arc<dyn LlmRuntime>>>>,
+        embedding_runtimes: Arc<RwLock<HashMap<String, Arc<dyn EmbeddingRuntime>>>>,
         mut request_receiver: mpsc::Receiver<EngineRequest>,
         semaphore: Arc<Semaphore>,
     ) {
@@ -97,7 +99,11 @@ impl CoreEngine {
                 match req {
                     EngineRequest::ChatCompletion { request, response_sender, stream_sender } => {
                         let model_name = request.model.clone();
-                        if let Some(runtime) = llm_map.get(&model_name) {
+                        let runtime_opt = {
+                            let map = llm_map.read().await;
+                            map.get(&model_name).cloned()
+                        };
+                        if let Some(runtime) = runtime_opt {
                         let prompt = request.messages.last().map(|m| m.content.clone()).unwrap_or_default();
                         let max_tokens = request.max_tokens.unwrap_or(100);
 
@@ -173,7 +179,11 @@ impl CoreEngine {
                     }
                     EngineRequest::Embeddings { request, response_sender } => {
                         let model_name = request.model.clone();
-                        if let Some(runtime) = embed_map.get(&model_name) {
+                        let runtime_opt = {
+                            let map = embed_map.read().await;
+                            map.get(&model_name).cloned()
+                        };
+                        if let Some(runtime) = runtime_opt {
                             let inputs = request.input.clone();
                             let result = runtime.embed(&inputs).await;
                             match result {
@@ -274,5 +284,42 @@ impl CoreEngine {
             .recv()
             .await
             .ok_or("Engine response channel closed".to_string())?
+    }
+
+    // Admin helpers (simple; no persistence)
+    pub async fn list_models(&self) -> (Vec<String>, Vec<String>) {
+        let llm = { self.llm_runtimes.read().await.keys().cloned().collect::<Vec<_>>() };
+        let embedding = { self.embedding_runtimes.read().await.keys().cloned().collect::<Vec<_>>() };
+        (llm, embedding)
+    }
+
+    pub async fn load_model(&self, kind: &str, name: &str, path: Option<&str>) -> Result<(), String> {
+        match kind {
+            "llm" => {
+                #[cfg(feature = "llama")]
+                if let Some(p) = path {
+                    let rt = LlamaCppRuntime::new(p).map_err(|e| format!("load llama: {}", e))?;
+                    self.llm_runtimes.write().await.insert(name.to_string(), Arc::new(rt));
+                    return Ok(());
+                }
+                // fallback: dummy
+                self.llm_runtimes.write().await.insert(name.to_string(), Arc::new(DummyRuntime::new()));
+                Ok(())
+            }
+            "embedding" => {
+                // placeholder: only dummy for now
+                self.embedding_runtimes.write().await.insert(name.to_string(), Arc::new(DummyEmbeddingRuntime::new(384)));
+                Ok(())
+            }
+            _ => Err("unknown kind".to_string()),
+        }
+    }
+
+    pub async fn unload_model(&self, kind: &str, name: &str) -> Result<(), String> {
+        match kind {
+            "llm" => { self.llm_runtimes.write().await.remove(name); Ok(()) }
+            "embedding" => { self.embedding_runtimes.write().await.remove(name); Ok(()) }
+            _ => Err("unknown kind".to_string()),
+        }
     }
 }

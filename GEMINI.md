@@ -112,10 +112,10 @@ Based on the roadmap in `prd.md`, we define specific action items for each phase
         - [x] Add `moka` dependency and initialize the cache instance
         - [x] Add LRU caching logic within the `CoreEngine` (using request hash as key)
         - [x] Implement cache TTL (Time-To-Live) configuration
-    - [ ] **F5: Dynamic Model Management**
-        - [ ] Implement `POST /admin/models/load` and `POST /admin/models/unload` API endpoints
-        - [ ] Modify the `CoreEngine` to dynamically load/unload models without service interruption (e.g., using `Arc<Mutex<HashMap>>`)
-        - [ ] Implement functionality to view the list and status of currently loaded models via `GET /admin/models`
+    - [x] **F5: Dynamic Model Management**
+        - [x] Implement `POST /admin/models/load` and `POST /admin/models/unload` API endpoints
+        - [x] Modify the `CoreEngine` to dynamically load/unload models without service interruption (e.g., using `Arc<Mutex<HashMap>>`)
+        - [x] Implement functionality to view the list and status of currently loaded models via `GET /admin/models`
     - [ ] **F6: Service Monitoring**
         - [ ] Add `metrics` and `metrics-exporter-prometheus` dependencies
         - [ ] Add code to collect key metrics (request count, latency, error rate, cache hit rate)

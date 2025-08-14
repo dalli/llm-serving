@@ -101,3 +101,23 @@ pub struct EmbeddingUsage {
     pub prompt_tokens: u32,
     pub total_tokens: u32,
 }
+
+// ---- Admin API (Dynamic Model Management) ----
+#[derive(Debug, Deserialize)]
+pub struct LoadModelRequest {
+    pub model: String,
+    pub kind: String, // "llm" | "embedding"
+    pub path: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct UnloadModelRequest {
+    pub model: String,
+    pub kind: String, // "llm" | "embedding"
+}
+
+#[derive(Debug, Serialize)]
+pub struct ModelsListResponse {
+    pub llm: Vec<String>,
+    pub embedding: Vec<String>,
+}

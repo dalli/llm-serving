@@ -9,7 +9,7 @@ use crate::{
         ChatCompletionResponse, ChatCompletionChoice, Delta, ResponseMessage, Usage,
         EmbeddingsRequest, EmbeddingsResponse, EmbeddingObject, EmbeddingUsage,
     },
-    runtime::{dummy::DummyRuntime, dummy_embedding::DummyEmbeddingRuntime, LlmRuntime, EmbeddingRuntime},
+    runtime::{dummy::DummyRuntime, dummy_embedding::DummyEmbeddingRuntime, LlmRuntime, EmbeddingRuntime, GenerationOptions},
 };
 #[cfg(feature = "llama")]
 use crate::runtime::llama_cpp::LlamaCppRuntime;
@@ -104,8 +104,8 @@ impl CoreEngine {
                             map.get(&model_name).cloned()
                         };
                         if let Some(runtime) = runtime_opt {
-                        let prompt = request.messages.last().map(|m| m.content.clone()).unwrap_or_default();
-                        let max_tokens = request.max_tokens.unwrap_or(100);
+                            let prompt = request.messages.last().map(|m| m.content.clone()).unwrap_or_default();
+                            let gen_opts = GenerationOptions::from_request(request.max_tokens, request.temperature, request.top_p);
 
                             if let Some(stream_tx) = stream_sender {
                                 // Stream role first
@@ -125,7 +125,7 @@ impl CoreEngine {
                                 let _ = stream_tx.send(serde_json::to_string(&role_chunk).unwrap()).await;
 
                                 // Generate full text (simple runtime API), then send in one content chunk
-                                let generated = runtime.generate(&prompt, max_tokens).await.unwrap_or_else(|e| format!("[error: {}]", e));
+                                let generated = runtime.generate(&prompt, &gen_opts).await.unwrap_or_else(|e| format!("[error: {}]", e));
                                 let content_chunk = ChatCompletionChunk {
                                     id: id.clone(),
                                     object: "chat.completion.chunk".to_string(),
@@ -154,7 +154,7 @@ impl CoreEngine {
                                 // Optional: client often expects a [DONE] sentinel per OpenAI semantics
                                 let _ = stream_tx.send("[DONE]".to_string()).await;
                             } else if let Some(resp_tx) = response_sender {
-                                let generated = runtime.generate(&prompt, max_tokens).await.unwrap_or_default();
+                                let generated = runtime.generate(&prompt, &gen_opts).await.unwrap_or_default();
                                 let response = ChatCompletionResponse {
                                     id: uuid::Uuid::new_v4().to_string(),
                                     object: "chat.completion".to_string(),

@@ -3,7 +3,7 @@ use llama_cpp::{LlamaModel, LlamaParams, LlamaSession, SessionParams, Token};
 use std::{fs::File, path::PathBuf};
 use memmap2::Mmap;
 
-use crate::runtime::LlmRuntime;
+use crate::runtime::{LlmRuntime, GenerationOptions};
 
 pub struct LlamaCppRuntime {
     model: LlamaModel,
@@ -50,7 +50,7 @@ impl LlamaCppRuntime {
 
 #[async_trait]
 impl LlmRuntime for LlamaCppRuntime {
-    async fn generate(&self, prompt: &str, max_tokens: u32) -> Result<String, String> {
+    async fn generate(&self, prompt: &str, options: &GenerationOptions) -> Result<String, String> {
         let mut session = self.create_session();
         let tokens: Vec<Token> = self.model.tokenize(prompt.as_bytes(), true).map_err(|e| format!("Failed to tokenize prompt: {}", e))?; // Use self.model.tokenize
         session
@@ -58,7 +58,7 @@ impl LlmRuntime for LlamaCppRuntime {
             .map_err(|e| format!("Failed to advance context: {}", e))?;
 
         let mut generated_text = String::new();
-        for _ in 0..max_tokens {
+        for _ in 0..options.max_tokens {
             let token = session
                 .decode_next_token(&self.model) // Use decode_next_token
                 .map_err(|e| format!("Failed to decode next token: {}", e))?;

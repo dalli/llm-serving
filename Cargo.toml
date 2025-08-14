@@ -26,6 +26,9 @@ ort = { version = "2.0.0-rc.9", optional = true, default-features = false, featu
 tokenizers = { version = "0.15", optional = true }
 ndarray = { version = "0.15", optional = true }
 base64 = "0.21"
+governor = { version = "0.6" }
+once_cell = "1.19"
+nonzero_ext = "0.3"
 
 [features]
 default = []

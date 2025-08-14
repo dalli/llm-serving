@@ -81,7 +81,7 @@ Based on the roadmap in `prd.md`, we define specific action items for each phase
     - [ ] **F2: Text Model Runtime**
         - [x] Define an `LlmRuntime` Trait for abstraction
         - [ ] Implement `LlamaCppRuntime` using `llama.cpp` Rust bindings
-        - [ ] Implement GGUF/GGML model file loading and memory mapping
+        - [x] Implement GGUF/GGML model file loading and memory mapping
         - [x] Implement text generation logic for input prompts
     - [x] **F3: Core Engine & Concurrency**
         - [x] Define the `CoreEngine` struct for managing model runtimes

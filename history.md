@@ -60,17 +60,21 @@
     - Refactored runtimes to `Arc<RwLock<HashMap<...>>>` for dynamic updates
     - Added admin endpoints: `GET /admin/models`, `POST /admin/models/load`, `POST /admin/models/unload`
     - Implemented load/unload helpers in engine; kept dummy fallbacks
+  - F2: Text Model Runtime
+    - Added GGUF/GGML validation and memory-mapped file check in `LlamaCppRuntime::new` using `memmap2`
 
 - **Issues Encountered:**
   - Concurrency orchestration within a single worker loop caused potential head-of-line blocking
   - Backward compatibility risk when adding new request fields
   - Cache get is async in `moka::future`; initial code missed `.await`
   - Sharing runtimes across workers and admin mutations required read/write synchronization
+  - Need to ensure robust GGUF magic check and file access errors handled gracefully
 - **Solution:**
   - Switched to per-request task spawn with a shared `Semaphore` to bound concurrency, avoiding blocking the receiver loop
   - Used optional fields with serde defaulting to maintain compatibility
   - Fixed by awaiting cache get and cloning response for insertion
   - Used `RwLock` to allow concurrent read access and exclusive writes during model changes
+  - Memory-map model file and validate header; then delegate to `llama.cpp` loader
 
 - **Retrospective:**
   - **What went well:** Simple, bounded concurrency model improved throughput without complicating the engine interface.

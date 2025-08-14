@@ -17,6 +17,13 @@ resources:
 
 env: {}
 
+hcmSecret:
+  enabled: false
+  name: llm-serving-secret
+  data:
+    # Example: API_KEYS: "key1,key2"
+    API_KEYS: ""
+
 hpa:
   enabled: false
   minReplicas: 1

@@ -29,6 +29,10 @@ spec:
           envFrom:
             - configMapRef:
                 name: llm-serving-config
+            {{- if .Values.hcmSecret.enabled }}
+            - secretRef:
+                name: {{ .Values.hcmSecret.name }}
+            {{- end }}
           livenessProbe:
             httpGet:
               path: /health

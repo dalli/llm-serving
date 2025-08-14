@@ -144,3 +144,96 @@ async fn chat_completions_with_image_url_routes_to_multimodal() {
     assert!(content.starts_with("Echo(Vision): "));
     assert!(content.contains("images=1"));
 }
+
+#[tokio::test]
+async fn admin_can_load_and_unload_embedding_model() {
+    let engine = Arc::new(CoreEngine::new());
+    let app = Router::new()
+        .route("/admin/models", axum::routing::get(llm_serving::api::routes::admin_models_list))
+        .route("/admin/models/load", post(llm_serving::api::routes::admin_models_load))
+        .route("/admin/models/unload", post(llm_serving::api::routes::admin_models_unload))
+        .with_state(engine);
+
+    // initial list
+    let req = Request::builder().method("GET").uri("/admin/models").body(Body::empty()).unwrap();
+    let resp = app.clone().oneshot(req).await.unwrap();
+    assert_eq!(resp.status(), StatusCode::OK);
+    let body = axum::body::to_bytes(resp.into_body(), usize::MAX).await.unwrap();
+    let v: Value = serde_json::from_slice(&body).unwrap();
+    assert!(v["embedding"].as_array().unwrap().iter().any(|m| m.as_str() == Some("dummy-embedding")));
+
+    // load new embedding model (falls back to dummy if feature not enabled/path missing)
+    let payload = json!({"model": "custom-embed", "kind": "embedding", "path": null});
+    let req = Request::builder()
+        .method("POST")
+        .uri("/admin/models/load")
+        .header("content-type", "application/json")
+        .body(Body::from(payload.to_string()))
+        .unwrap();
+    let resp = app.clone().oneshot(req).await.unwrap();
+    assert_eq!(resp.status(), StatusCode::OK);
+
+    // list should include custom-embed
+    let req = Request::builder().method("GET").uri("/admin/models").body(Body::empty()).unwrap();
+    let resp = app.clone().oneshot(req).await.unwrap();
+    let body = axum::body::to_bytes(resp.into_body(), usize::MAX).await.unwrap();
+    let v: Value = serde_json::from_slice(&body).unwrap();
+    assert!(v["embedding"].as_array().unwrap().iter().any(|m| m.as_str() == Some("custom-embed")));
+
+    // unload
+    let payload = json!({"model": "custom-embed", "kind": "embedding"});
+    let req = Request::builder()
+        .method("POST")
+        .uri("/admin/models/unload")
+        .header("content-type", "application/json")
+        .body(Body::from(payload.to_string()))
+        .unwrap();
+    let resp = app.clone().oneshot(req).await.unwrap();
+    assert_eq!(resp.status(), StatusCode::OK);
+
+    // list should no longer include custom-embed
+    let req = Request::builder().method("GET").uri("/admin/models").body(Body::empty()).unwrap();
+    let resp = app.clone().oneshot(req).await.unwrap();
+    let body = axum::body::to_bytes(resp.into_body(), usize::MAX).await.unwrap();
+    let v: Value = serde_json::from_slice(&body).unwrap();
+    assert!(!v["embedding"].as_array().unwrap().iter().any(|m| m.as_str() == Some("custom-embed")));
+}
+
+#[tokio::test]
+async fn admin_can_load_and_unload_llm_model() {
+    let engine = Arc::new(CoreEngine::new());
+    let app = Router::new()
+        .route("/admin/models", axum::routing::get(llm_serving::api::routes::admin_models_list))
+        .route("/admin/models/load", post(llm_serving::api::routes::admin_models_load))
+        .route("/admin/models/unload", post(llm_serving::api::routes::admin_models_unload))
+        .with_state(engine);
+
+    // load new llm model (falls back to dummy if llama feature not enabled/path missing)
+    let payload = json!({"model": "custom-llm", "kind": "llm", "path": null});
+    let req = Request::builder()
+        .method("POST")
+        .uri("/admin/models/load")
+        .header("content-type", "application/json")
+        .body(Body::from(payload.to_string()))
+        .unwrap();
+    let resp = app.clone().oneshot(req).await.unwrap();
+    assert_eq!(resp.status(), StatusCode::OK);
+
+    // list should include custom-llm
+    let req = Request::builder().method("GET").uri("/admin/models").body(Body::empty()).unwrap();
+    let resp = app.clone().oneshot(req).await.unwrap();
+    let body = axum::body::to_bytes(resp.into_body(), usize::MAX).await.unwrap();
+    let v: Value = serde_json::from_slice(&body).unwrap();
+    assert!(v["llm"].as_array().unwrap().iter().any(|m| m.as_str() == Some("custom-llm")));
+
+    // unload
+    let payload = json!({"model": "custom-llm", "kind": "llm"});
+    let req = Request::builder()
+        .method("POST")
+        .uri("/admin/models/unload")
+        .header("content-type", "application/json")
+        .body(Body::from(payload.to_string()))
+        .unwrap();
+    let resp = app.clone().oneshot(req).await.unwrap();
+    assert_eq!(resp.status(), StatusCode::OK);
+}

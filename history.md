@@ -60,6 +60,7 @@
     - Refactored runtimes to `Arc<RwLock<HashMap<...>>>` for dynamic updates
     - Added admin endpoints: `GET /admin/models`, `POST /admin/models/load`, `POST /admin/models/unload`
     - Implemented load/unload helpers in engine; kept dummy fallbacks
+    - Added integration tests for admin model list/load/unload
   - F2: Text Model Runtime
     - Implemented `LlamaCppRuntime` using `llama_cpp` Rust bindings (feature `llama`)
     - Auto-loads when `LLAMA_MODEL_PATH` is set; registered under model name `llama-cpp`

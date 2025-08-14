@@ -2,6 +2,7 @@ use std::{collections::HashMap, sync::Arc};
 use tokio::sync::{mpsc, Semaphore, RwLock};
 use moka::future::Cache;
 use sha2::{Digest, Sha256};
+use metrics::{counter, histogram};
 
 use crate::{
     api::dto::{
@@ -98,6 +99,7 @@ impl CoreEngine {
                 let _permit = semaphore_clone.acquire_owned().await.expect("semaphore closed");
                 match req {
                     EngineRequest::ChatCompletion { request, response_sender, stream_sender } => {
+                        counter!("requests_total", 1, "endpoint" => "chat");
                         let model_name = request.model.clone();
                         let runtime_opt = {
                             let map = llm_map.read().await;
@@ -108,6 +110,7 @@ impl CoreEngine {
                             let gen_opts = GenerationOptions::from_request(request.max_tokens, request.temperature, request.top_p);
 
                             if let Some(stream_tx) = stream_sender {
+                                let start = std::time::Instant::now();
                                 // Stream role first
                                 let id = uuid::Uuid::new_v4().to_string();
                                 let created = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_secs();
@@ -153,7 +156,13 @@ impl CoreEngine {
                                 let _ = stream_tx.send(serde_json::to_string(&done_chunk).unwrap()).await;
                                 // Optional: client often expects a [DONE] sentinel per OpenAI semantics
                                 let _ = stream_tx.send("[DONE]".to_string()).await;
+                                histogram!(
+                                    "request_latency_ms",
+                                    start.elapsed().as_millis() as f64,
+                                    "endpoint" => "chat"
+                                );
                             } else if let Some(resp_tx) = response_sender {
+                                let start = std::time::Instant::now();
                                 let generated = runtime.generate(&prompt, &gen_opts).await.unwrap_or_default();
                                 let response = ChatCompletionResponse {
                                     id: uuid::Uuid::new_v4().to_string(),
@@ -172,18 +181,25 @@ impl CoreEngine {
                                     },
                                 };
                                 let _ = resp_tx.send(Ok(response)).await;
+                                histogram!(
+                                    "request_latency_ms",
+                                    start.elapsed().as_millis() as f64,
+                                    "endpoint" => "chat"
+                                );
                             }
                         } else if let Some(resp_tx) = response_sender {
                             let _ = resp_tx.send(Err(format!("Model {} not found", model_name))).await;
                         }
                     }
                     EngineRequest::Embeddings { request, response_sender } => {
+                        counter!("requests_total", 1, "endpoint" => "embeddings");
                         let model_name = request.model.clone();
                         let runtime_opt = {
                             let map = embed_map.read().await;
                             map.get(&model_name).cloned()
                         };
                         if let Some(runtime) = runtime_opt {
+                            let start = std::time::Instant::now();
                             let inputs = request.input.clone();
                             let result = runtime.embed(&inputs).await;
                             match result {
@@ -199,7 +215,12 @@ impl CoreEngine {
                                         object: "list".to_string(),
                                         usage: EmbeddingUsage { prompt_tokens: 0, total_tokens: 0 },
                                     };
-                                    let _ = response_sender.send(Ok(response)).await;
+                                let _ = response_sender.send(Ok(response)).await;
+                                histogram!(
+                                    "request_latency_ms",
+                                    start.elapsed().as_millis() as f64,
+                                    "endpoint" => "embeddings"
+                                );
                                 }
                                 Err(e) => { let _ = response_sender.send(Err(e)).await; }
                             }
@@ -227,8 +248,10 @@ impl CoreEngine {
 
         if let Some(ref key) = cache_key {
             if let Some(resp) = self.response_cache.get(key).await {
+                counter!("cache_hit_total", 1);
                 return Ok(resp);
             }
+            counter!("cache_miss_total", 1);
         }
 
         let (response_sender, mut response_receiver) = mpsc::channel(1);
@@ -248,6 +271,7 @@ impl CoreEngine {
                 .ok_or("Engine response channel closed".to_string())?;
             if let (Some(key), Ok(resp)) = (cache_key, &result) {
                 self.response_cache.insert(key, resp.clone()).await;
+                counter!("cache_store_total", 1);
             }
             result
         } else {

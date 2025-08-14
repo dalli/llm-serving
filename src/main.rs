@@ -8,6 +8,7 @@ use tokio::net::TcpListener;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
 use crate::engine::CoreEngine;
+use metrics_exporter_prometheus::{PrometheusBuilder, PrometheusHandle};
 
 #[tokio::main]
 async fn main() {
@@ -19,6 +20,9 @@ async fn main() {
         .with(tracing_subscriber::fmt::layer())
         .init();
 
+    // Metrics exporter
+    let prom_handle: PrometheusHandle = PrometheusBuilder::new().install_recorder().unwrap();
+
     let engine = Arc::new(CoreEngine::new());
 
     let app = Router::new()
@@ -27,6 +31,19 @@ async fn main() {
         .route("/admin/models", axum::routing::get(api::routes::admin_models_list))
         .route("/admin/models/load", post(api::routes::admin_models_load))
         .route("/admin/models/unload", post(api::routes::admin_models_unload))
+        .route("/admin/metrics", axum::routing::get({
+            let handle = prom_handle.clone();
+            move || {
+                let body = handle.render();
+                async move {
+                    axum::response::Response::builder()
+                        .header("content-type", "text/plain; version=0.0.4")
+                        .body(axum::body::Body::from(body))
+                        .unwrap()
+                }
+            }
+        }))
+        .route("/health", axum::routing::get(|| async { axum::Json(serde_json::json!({"status":"ok"})) }))
         .with_state(engine);
 
     let listener = TcpListener::bind("0.0.0.0:3000").await.unwrap();

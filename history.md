@@ -66,6 +66,10 @@
     - Added GGUF/GGML validation and memory-mapped file check in `LlamaCppRuntime::new` using `memmap2`
     - Wired generation parameters through runtime via `GenerationOptions`; updated `LlmRuntime` trait and implementations
     - Introduced sampling helper (top-p + temperature) scaffold for future logits-based decoding
+  - F6: Service Monitoring
+    - Added `metrics`/`metrics-exporter-prometheus`; Prometheus endpoint at `/admin/metrics`
+    - Implemented `/health` endpoint
+    - Counted requests by endpoint; measured latency; tracked cache hit/miss/store
 
 - **Issues Encountered:**
   - Concurrency orchestration within a single worker loop caused potential head-of-line blocking
@@ -75,6 +79,7 @@
   - Need to ensure robust GGUF magic check and file access errors handled gracefully
   - Trait change risk across runtimes and engine call sites
   - `llama_cpp` crate API mismatch for tokenize/decode across versions
+  - Metrics macro usage differences across versions caused compile errors initially
 - **Solution:**
   - Switched to per-request task spawn with a shared `Semaphore` to bound concurrency, avoiding blocking the receiver loop
   - Used optional fields with serde defaulting to maintain compatibility
@@ -83,6 +88,7 @@
   - Memory-map model file and validate header; then delegate to `llama.cpp` loader
   - Updated engine to pass `GenerationOptions`, adjusted dummy and llama runtimes accordingly
   - Implemented minimal `LlamaCppRuntime` session wiring with safe placeholder generation to keep build green; to be replaced with proper sampling when API stabilizes
+  - Fixed metrics macro calls to use current signature (value first, then labels)
 
 - **Retrospective:**
   - **What went well:** Simple, bounded concurrency model improved throughput without complicating the engine interface.

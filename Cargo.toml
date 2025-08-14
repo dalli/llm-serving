@@ -20,6 +20,8 @@ moka = { version = "0.12", features = ["future"] }
 sha2 = "0.10"
 memmap2 = "0.9"
 rand = "0.8"
+metrics = "0.21"
+metrics-exporter-prometheus = "0.14"
 
 [features]
 default = []

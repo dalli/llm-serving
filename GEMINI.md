@@ -116,11 +116,11 @@ Based on the roadmap in `prd.md`, we define specific action items for each phase
         - [x] Implement `POST /admin/models/load` and `POST /admin/models/unload` API endpoints
         - [x] Modify the `CoreEngine` to dynamically load/unload models without service interruption (e.g., using `Arc<Mutex<HashMap>>`)
         - [x] Implement functionality to view the list and status of currently loaded models via `GET /admin/models`
-    - [ ] **F6: Service Monitoring**
-        - [ ] Add `metrics` and `metrics-exporter-prometheus` dependencies
-        - [ ] Add code to collect key metrics (request count, latency, error rate, cache hit rate)
-        - [ ] Implement the `/admin/metrics` endpoint
-        - [ ] Implement the `/health` health check endpoint
+    - [x] **F6: Service Monitoring**
+        - [x] Add `metrics` and `metrics-exporter-prometheus` dependencies
+        - [x] Add code to collect key metrics (request count, latency, cache hit/store/miss)
+        - [x] Implement the `/admin/metrics` endpoint
+        - [x] Implement the `/health` health check endpoint
 
 ### Phase 4: Image Generation & Enhancements (5 weeks)
 - **Goal**: Implement support for image generation models and advanced features.

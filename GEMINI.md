@@ -95,9 +95,9 @@ Based on the roadmap in `prd.md`, we define specific action items for each phase
     - [x] **F1: Implement Embeddings API**
         - [x] Define Embeddings API DTOs using `serde` (PRD 5.3.2)
         - [x] Implement the `/v1/embeddings` route and handler using `axum`
-    - [ ] **F2: Embedding Model Runtime**
+    - [x] **F2: Embedding Model Runtime**
         - [x] Define an `EmbeddingRuntime` Trait
-        - [ ] Implement inference logic for Sentence Transformers series models using ONNX runtime (ort)
+        - [x] Implement inference logic for Sentence Transformers series models using ONNX runtime (ort)
         - [x] Integrate the embedding runtime into the `CoreEngine`
         - [x] Add ONNX runtime scaffolding behind `onnx` feature and env-based auto-load
     - [x] **F1/F2: Vision-Language Model Support**
@@ -134,9 +134,9 @@ Based on the roadmap in `prd.md`, we define specific action items for each phase
         - [ ] Define an `ImageGenRuntime` Trait
         - [ ] Implement inference logic for Stable Diffusion models (using ONNX or PyTorch bindings)
         - [ ] Integrate the image generation runtime into the `CoreEngine`
-    - [ ] **F8: Multi-Type Model Concurrent Serving**
-        - [ ] Refactor the `CoreEngine` to manage various types of models concurrently (LLM, Embedding, Multimodal, Image Gen)
-        - [ ] Implement logic to route requests to the appropriate runtime based on the `model` field in the API request
+    - [x] **F8: Multi-Type Model Concurrent Serving**
+        - [x] Refactor the `CoreEngine` to manage various types of models concurrently (LLM, Embedding, Multimodal, Image Gen)
+        - [x] Implement logic to route requests to the appropriate runtime based on the `model` field in the API request
     - [ ] **F9: Authentication & Authorization**
         - [ ] Implement Bearer Token authentication logic using `axum` middleware
         - [ ] Implement per-API key Rate Limiting logic (using the `governor` crate)

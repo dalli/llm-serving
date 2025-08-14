@@ -13,7 +13,7 @@ COPY README.md GEMINI.md history.md ./
 # Build in release mode (default features)
 RUN --mount=type=cache,target=/usr/local/cargo/registry \
     --mount=type=cache,target=/app/target \
-    cargo build --release
+    cargo build --release --bin llm-serving
 
 # ---------- Runtime Stage ----------
 FROM debian:bookworm-slim AS runtime

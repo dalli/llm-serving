@@ -8,7 +8,7 @@ COPY src ./src
 COPY tests ./tests
 RUN --mount=type=cache,target=/usr/local/cargo/registry \
     --mount=type=cache,target=/app/target \
-    cargo build --release
+    cargo build --release --bin llm-serving
 
 # Runtime with NVIDIA CUDA libs for GPU execution
 FROM nvidia/cuda:12.4.1-runtime-ubuntu22.04 AS runtime

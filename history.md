@@ -79,7 +79,7 @@
   - Vision-Language (Multimodal) Support
     - Extended Chat DTOs to OpenAI-compatible content parts (text/image_url)
     - Added `MultimodalRuntime` trait and integrated dummy implementation via runtime map
-    - Engine routes to multimodal runtime when images are present
+    - Engine routes to multimodal runtime when images are present; supports model names that only exist in multimodal map
     - Added feature-gated `LlavaRuntime` scaffold and env-based auto-registration (`LLAVA_VISION_MODEL_PATH`, `LLAVA_PROJECTION_PATH`, `LLAMA_MODEL_PATH`)
 
 - **Issues Encountered:**
@@ -144,4 +144,4 @@
   - Dedicated multimodal runtime map; fixed metrics macros (value-first); adjusted ORT imports/builders
 - **Retrospective:**
   - **What went well:** Incremental scaffolding with feature flags preserved stability; tests stayed green
-  - **What to improve:** Wire real logits sampling; finalize ONNX tokenizer/IO; implement LLaVA vision encode→LLM pipeline; add multimodal integration tests
+  - **What to improve:** Wire real logits sampling; finalize ONNX tokenizer/IO; implement LLaVA vision encode→LLM pipeline; expand multimodal integration tests

@@ -107,3 +107,40 @@ async fn chat_completions_stream_sends_sse_and_done() {
     assert!(body_text.contains("chat.completion.chunk"));
     assert!(body_text.contains("[DONE]"));
 }
+
+#[tokio::test]
+async fn chat_completions_with_image_url_routes_to_multimodal() {
+    let engine = Arc::new(CoreEngine::new());
+    let app = Router::new()
+        .route("/v1/chat/completions", post(chat_completions))
+        .with_state(engine);
+
+    let payload = json!({
+        "model": "dummy-model",
+        "messages": [{
+            "role": "user",
+            "content": [
+                {"type": "text", "text": "look at this"},
+                {"type": "image_url", "image_url": {"url": "https://example.com/img.jpg"}}
+            ]
+        }],
+        "stream": false,
+        "max_tokens": 50
+    });
+
+    let request = Request::builder()
+        .method("POST")
+        .uri("/v1/chat/completions")
+        .header("content-type", "application/json")
+        .body(Body::from(payload.to_string()))
+        .unwrap();
+
+    let response = app.clone().oneshot(request).await.unwrap();
+    assert_eq!(response.status(), StatusCode::OK);
+    let body_bytes = axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap();
+    let v: Value = serde_json::from_slice(&body_bytes).unwrap();
+
+    let content = v["choices"][0]["message"]["content"].as_str().unwrap_or("");
+    assert!(content.starts_with("Echo(Vision): "));
+    assert!(content.contains("images=1"));
+}

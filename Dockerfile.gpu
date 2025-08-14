@@ -1,0 +1,30 @@
+# syntax=docker/dockerfile:1
+
+# Build binary in a CPU builder image
+FROM rust:1.79-slim-bookworm AS builder
+WORKDIR /app
+COPY Cargo.toml Cargo.lock ./
+COPY src ./src
+COPY tests ./tests
+RUN --mount=type=cache,target=/usr/local/cargo/registry \
+    --mount=type=cache,target=/app/target \
+    cargo build --release
+
+# Runtime with NVIDIA CUDA libs for GPU execution
+FROM nvidia/cuda:12.4.1-runtime-ubuntu22.04 AS runtime
+
+# Create non-root user
+RUN useradd -m -u 10001 appuser
+
+# Install minimal deps
+RUN apt-get update && apt-get install -y --no-install-recommends \
+      ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+COPY --from=builder /app/target/release/llm-serving /usr/local/bin/llm-serving
+
+ENV RUST_LOG=info
+EXPOSE 3000
+USER appuser
+ENTRYPOINT ["/usr/local/bin/llm-serving"]

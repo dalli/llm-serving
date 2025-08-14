@@ -146,7 +146,7 @@ Based on the roadmap in `prd.md`, we define specific action items for each phase
 - **Detailed Tasks**:
     - [x] **F10: Containerization**
         - [x] Create a lightweight production Docker image using a multi-stage build
-        - [ ] Include the NVIDIA CUDA runtime in the Docker image for GPU support
+        - [x] Include the NVIDIA CUDA runtime in the Docker image for GPU support
     - [ ] **F10: Kubernetes Deployment**
         - [x] Create a deployment chart using `Helm` (Deployment, Service, ConfigMap, Secret)
         - [x] Configure Liveness/Readiness Probes using the `/health` endpoint

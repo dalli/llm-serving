@@ -127,13 +127,13 @@ Based on the roadmap in `prd.md`, we define specific action items for each phase
 ### Phase 4: Image Generation & Enhancements (5 weeks)
 - **Goal**: Implement support for image generation models and advanced features.
 - **Detailed Tasks**:
-    - [ ] **F1: Implement Image Generation API**
-        - [ ] Define Image Generation API DTOs using `serde` (PRD 5.3.3)
-        - [ ] Implement the `/v1/images/generations` route and handler using `axum`
+    - [x] **F1: Implement Image Generation API**
+        - [x] Define Image Generation API DTOs using `serde` (PRD 5.3.3)
+        - [x] Implement the `/v1/images/generations` route and handler using `axum`
     - [ ] **F2: Image Generation Runtime**
-        - [ ] Define an `ImageGenRuntime` Trait
+        - [x] Define an `ImageGenRuntime` Trait
         - [ ] Implement inference logic for Stable Diffusion models (using ONNX or PyTorch bindings)
-        - [ ] Integrate the image generation runtime into the `CoreEngine`
+        - [x] Integrate the image generation runtime into the `CoreEngine`
     - [x] **F8: Multi-Type Model Concurrent Serving**
         - [x] Refactor the `CoreEngine` to manage various types of models concurrently (LLM, Embedding, Multimodal, Image Gen)
         - [x] Implement logic to route requests to the appropriate runtime based on the `model` field in the API request

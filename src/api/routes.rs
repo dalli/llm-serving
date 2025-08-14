@@ -16,12 +16,16 @@ use crate::api::{
     error::AppError,
 };
 use crate::engine::CoreEngine; // Import the actual CoreEngine
+use crate::api::auth::authorize_request;
+use axum::http::HeaderMap;
 use base64::Engine as _; // bring encode into scope
 
 pub async fn chat_completions(
+    headers: HeaderMap,
     State(engine): State<Arc<CoreEngine>>,
     Json(request): Json<ChatCompletionRequest>,
 ) -> Result<Response, AppError> {
+    authorize_request(&headers).map_err(AppError::BadRequest)?;
     if request.stream.unwrap_or(false) {
         let (tx, rx) = mpsc::channel::<String>(100);
 
@@ -42,9 +46,11 @@ pub async fn chat_completions(
 }
 
 pub async fn embeddings(
+    headers: HeaderMap,
     State(engine): State<Arc<CoreEngine>>,
     Json(request): Json<EmbeddingsRequest>,
  ) -> Result<Response, AppError> {
+    authorize_request(&headers).map_err(AppError::BadRequest)?;
     match engine.process_embedding_request(request).await {
         Ok(resp) => Ok(Json(resp).into_response()),
         Err(e) => Err(AppError::BadRequest(e)),
@@ -52,9 +58,11 @@ pub async fn embeddings(
  }
 
 pub async fn images_generations(
+    headers: HeaderMap,
     State(engine): State<Arc<CoreEngine>>,
     Json(request): Json<ImagesGenerationRequest>,
 ) -> Result<Response, AppError> {
+    authorize_request(&headers).map_err(AppError::BadRequest)?;
     match engine.process_image_request(request).await {
         Ok(images) => {
             let created = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_secs();
@@ -72,8 +80,10 @@ pub async fn images_generations(
 }
 
 pub async fn admin_models_list(
+    headers: HeaderMap,
     State(engine): State<Arc<CoreEngine>>,
 ) -> Result<Response, AppError> {
+    authorize_request(&headers).map_err(AppError::BadRequest)?;
     let (llm, embedding) = engine.list_models().await;
     // For now, derive multimodal list from engine internals by re-calling list_models when expanded
     // As a workaround, return an empty list if not directly available
@@ -82,18 +92,22 @@ pub async fn admin_models_list(
 }
 
 pub async fn admin_models_load(
+    headers: HeaderMap,
     State(engine): State<Arc<CoreEngine>>,
     Json(req): Json<LoadModelRequest>,
 ) -> Result<Response, AppError> {
+    authorize_request(&headers).map_err(AppError::BadRequest)?;
     engine.load_model(&req.kind, &req.model, req.path.as_deref()).await
         .map_err(AppError::BadRequest)?;
     Ok(Json(serde_json::json!({"status":"ok"})).into_response())
 }
 
 pub async fn admin_models_unload(
+    headers: HeaderMap,
     State(engine): State<Arc<CoreEngine>>,
     Json(req): Json<UnloadModelRequest>,
 ) -> Result<Response, AppError> {
+    authorize_request(&headers).map_err(AppError::BadRequest)?;
     engine.unload_model(&req.kind, &req.model).await
         .map_err(AppError::BadRequest)?;
     Ok(Json(serde_json::json!({"status":"ok"})).into_response())

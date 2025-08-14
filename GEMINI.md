@@ -138,7 +138,7 @@ Based on the roadmap in `prd.md`, we define specific action items for each phase
         - [x] Refactor the `CoreEngine` to manage various types of models concurrently (LLM, Embedding, Multimodal, Image Gen)
         - [x] Implement logic to route requests to the appropriate runtime based on the `model` field in the API request
     - [ ] **F9: Authentication & Authorization**
-        - [ ] Implement Bearer Token authentication logic using `axum` middleware
+        - [x] Implement Bearer Token authentication logic using `axum`
         - [ ] Implement per-API key Rate Limiting logic (using the `governor` crate)
 
 ### Phase 5: Decentralization (6 weeks)

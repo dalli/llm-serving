@@ -101,7 +101,7 @@ Based on the roadmap in `prd.md`, we define specific action items for each phase
         - [x] Integrate the embedding runtime into the `CoreEngine`
         - [x] Add ONNX runtime scaffolding behind `onnx` feature and env-based auto-load
     - [x] **F1/F2: Vision-Language Model Support**
-        - [x] Extend Chat API DTOs to support vision inputs
+        - [x] Extend Chat API DTOs to support vision inputs (OpenAI-compatible content parts)
         - [x] Define a `MultimodalRuntime` Trait and dummy implementation
         - [ ] Support LLaVA model architecture (CLIP Vision Encoder + LLM)
         - [x] Integrate the multimodal runtime into the `CoreEngine` and add routing logic

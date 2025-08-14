@@ -14,19 +14,32 @@ pub struct ChatCompletionRequest {
     pub top_p: Option<f32>,
 }
 
+// OpenAI-compatible Chat content: either string or array of parts
 #[derive(Debug, Deserialize, Serialize, Clone)]
 #[serde(untagged)]
-pub enum ChatCompletionContent {
-    Text { content: String },
-    // Minimal OpenAI-style vision content support
-    Vision { content: String, #[serde(default)] image_urls: Vec<String> },
+pub enum ChatMessageContent {
+    Text(String),
+    Parts(Vec<ContentPart>),
+}
+
+#[derive(Debug, Deserialize, Serialize, Clone)]
+#[serde(tag = "type", rename_all = "snake_case")]
+pub enum ContentPart {
+    Text { text: String },
+    ImageUrl { image_url: ImageUrl },
+}
+
+#[derive(Debug, Deserialize, Serialize, Clone)]
+pub struct ImageUrl {
+    pub url: String,
+    #[serde(skip_serializing_if = "Option::is_none")] 
+    pub detail: Option<String>, // auto|low|high
 }
 
 #[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct ChatCompletionMessage {
     pub role: String,
-    #[serde(flatten)]
-    pub data: ChatCompletionContent,
+    pub content: ChatMessageContent,
 }
 
 #[derive(Debug, Serialize, Clone)]

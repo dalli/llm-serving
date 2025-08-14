@@ -7,7 +7,7 @@ use metrics::{counter, histogram};
 use crate::{
     api::dto::{
         ChatCompletionChunk, ChatCompletionChunkChoice, ChatCompletionRequest,
-        ChatCompletionResponse, ChatCompletionChoice, Delta, ResponseMessage, Usage, ChatCompletionContent,
+        ChatCompletionResponse, ChatCompletionChoice, Delta, ResponseMessage, Usage, ChatMessageContent, ContentPart,
         EmbeddingsRequest, EmbeddingsResponse, EmbeddingObject, EmbeddingUsage,
     },
     runtime::{dummy::DummyRuntime, dummy_embedding::DummyEmbeddingRuntime, LlmRuntime, EmbeddingRuntime, MultimodalRuntime, GenerationOptions},
@@ -129,9 +129,19 @@ impl CoreEngine {
                             map.get(&model_name).cloned()
                         };
                         if let Some(runtime) = runtime_opt {
-                            let (prompt, image_urls) = match request.messages.last().map(|m| m.data.clone()) {
-                                Some(ChatCompletionContent::Text { content }) => (content, Vec::new()),
-                                Some(ChatCompletionContent::Vision { content, image_urls }) => (content, image_urls),
+                            let (prompt, image_urls) = match request.messages.last().map(|m| m.content.clone()) {
+                                Some(ChatMessageContent::Text(content)) => (content, Vec::new()),
+                                Some(ChatMessageContent::Parts(parts)) => {
+                                    let mut text_acc = String::new();
+                                    let mut urls = Vec::new();
+                                    for p in parts {
+                                        match p {
+                                            ContentPart::Text { text } => text_acc.push_str(&text),
+                                            ContentPart::ImageUrl { image_url } => urls.push(image_url.url),
+                                        }
+                                    }
+                                    (text_acc, urls)
+                                }
                                 None => (String::new(), Vec::new()),
                             };
                             let gen_opts = GenerationOptions::from_request(request.max_tokens, request.temperature, request.top_p);
@@ -325,13 +335,15 @@ impl CoreEngine {
         hasher.update(req.model.as_bytes());
         for m in &req.messages {
             hasher.update(m.role.as_bytes());
-            match &m.data {
-                ChatCompletionContent::Text { content } => {
-                    hasher.update(content.as_bytes());
-                }
-                ChatCompletionContent::Vision { content, image_urls } => {
-                    hasher.update(content.as_bytes());
-                    for url in image_urls { hasher.update(url.as_bytes()); }
+            match &m.content {
+                ChatMessageContent::Text(content) => hasher.update(content.as_bytes()),
+                ChatMessageContent::Parts(parts) => {
+                    for p in parts {
+                        match p {
+                            ContentPart::Text { text } => hasher.update(text.as_bytes()),
+                            ContentPart::ImageUrl { image_url } => hasher.update(image_url.url.as_bytes()),
+                        }
+                    }
                 }
             }
         }

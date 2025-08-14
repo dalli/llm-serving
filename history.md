@@ -74,7 +74,7 @@
     - Added `onnx` feature and `ort` dependency; created `OnnxEmbeddingRuntime` scaffold
     - Auto-loads via `ONNX_EMBEDDING_MODEL_PATH` env when feature enabled; currently returns zero vectors pending tokenizer/IO wiring
   - Vision-Language (Multimodal) Support
-    - Extended Chat DTOs to accept vision inputs (content + image_urls)
+    - Extended Chat DTOs to OpenAI-compatible content parts (text/image_url)
     - Added `MultimodalRuntime` trait and integrated dummy implementation via runtime map
     - Engine routes to multimodal runtime when images are present
 

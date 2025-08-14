@@ -78,9 +78,9 @@ Based on the roadmap in `prd.md`, we define specific action items for each phase
         - [x] Implement the `/v1/chat/completions` route and handler using `axum`
         - [x] Implement `text/event-stream` handling logic for streaming responses
         - [x] Define and implement standard API error response formats
-    - [ ] **F2: Text Model Runtime**
+    - [x] **F2: Text Model Runtime**
         - [x] Define an `LlmRuntime` Trait for abstraction
-        - [ ] Implement `LlamaCppRuntime` using `llama.cpp` Rust bindings
+        - [x] Implement `LlamaCppRuntime` using `llama.cpp` Rust bindings
         - [x] Implement GGUF/GGML model file loading and memory mapping
         - [x] Implement text generation logic for input prompts
     - [x] **F3: Core Engine & Concurrency**

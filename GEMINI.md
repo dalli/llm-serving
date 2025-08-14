@@ -70,24 +70,24 @@ Based on the roadmap in `prd.md`, we define specific action items for each phase
 ### Phase 1: Text LLM MVP (4 weeks)
 - **Goal**: Implement basic text LLM serving functionality compatible with the OpenAI Chat API.
 - **Detailed Tasks**:
-    - [ ] **Initial Project Setup**
-        - [ ] Create project structure using `cargo` (`main.rs`, `api`, `engine`, `runtime` modules)
-        - [ ] Add core dependencies to `Cargo.toml` (axum, tokio, serde, tracing, llama-cpp-rs)
-    - [ ] **F1: Implement Chat API**
-        - [ ] Define OpenAI Chat API request/response DTOs using `serde` (PRD 5.3.1, 5.3.4)
-        - [ ] Implement the `/v1/chat/completions` route and handler using `axum`
-        - [ ] Implement `text/event-stream` handling logic for streaming responses
-        - [ ] Define and implement standard API error response formats
+    - [x] **Initial Project Setup**
+        - [x] Create project structure using `cargo` (`main.rs`, `api`, `engine`, `runtime` modules)
+        - [x] Add core dependencies to `Cargo.toml` (axum, tokio, serde, tracing, llama-cpp-rs)
+    - [x] **F1: Implement Chat API**
+        - [x] Define OpenAI Chat API request/response DTOs using `serde` (PRD 5.3.1, 5.3.4)
+        - [x] Implement the `/v1/chat/completions` route and handler using `axum`
+        - [x] Implement `text/event-stream` handling logic for streaming responses
+        - [x] Define and implement standard API error response formats
     - [ ] **F2: Text Model Runtime**
-        - [ ] Define an `LlmRuntime` Trait for abstraction
+        - [x] Define an `LlmRuntime` Trait for abstraction
         - [ ] Implement `LlamaCppRuntime` using `llama.cpp` Rust bindings
         - [ ] Implement GGUF/GGML model file loading and memory mapping
-        - [ ] Implement text generation logic for input prompts
+        - [x] Implement text generation logic for input prompts
     - [ ] **F3: Core Engine & Concurrency**
-        - [ ] Define the `CoreEngine` struct for managing model runtimes
-        - [ ] Implement a request queue using `tokio::mpsc` channel
+        - [x] Define the `CoreEngine` struct for managing model runtimes
+        - [x] Implement a request queue using `tokio::mpsc` channel
         - [ ] Implement a Tokio task worker pool to process requests concurrently
-        - [ ] Integrate the API handler with the core engine
+        - [x] Integrate the API handler with the core engine
 
 ### Phase 2: Multimodal Support (4 weeks)
 - **Goal**: Add support for embedding and vision-language models.
@@ -258,24 +258,24 @@ graph TB
 ### Phase 1: 텍스트 LLM MVP (4주)
 - **목표**: OpenAI Chat API와 호환되는 기본 텍스트 LLM 서빙 기능 구현.
 - **세부 과제**:
-    - [ ] **프로젝트 초기 설정**
-        - [ ] `cargo`를 이용한 프로젝트 구조 생성 (`main.rs`, `api`, `engine`, `runtime` 모듈)
-        - [ ] `Cargo.toml`에 핵심 의존성 추가 (axum, tokio, serde, tracing, llama-cpp-rs)
-    - [ ] **F1: Chat API 구현**
-        - [ ] `serde`를 사용하여 OpenAI Chat API 요청/응답 DTO 정의 (PRD 5.3.1, 5.3.4)
-        - [ ] `axum`을 사용하여 `/v1/chat/completions` 라우트 및 핸들러 구현
-        - [ ] 스트리밍 응답을 위한 `text/event-stream` 처리 로직 구현
-        - [ ] 표준 API 에러 응답 형식 정의 및 구현
+    - [x] **프로젝트 초기 설정**
+        - [x] `cargo`를 이용한 프로젝트 구조 생성 (`main.rs`, `api`, `engine`, `runtime` 모듈)
+        - [x] `Cargo.toml`에 핵심 의존성 추가 (axum, tokio, serde, tracing, llama-cpp-rs)
+    - [x] **F1: Chat API 구현**
+        - [x] `serde`를 사용하여 OpenAI Chat API 요청/응답 DTO 정의 (PRD 5.3.1, 5.3.4)
+        - [x] `axum`을 사용하여 `/v1/chat/completions` 라우트 및 핸들러 구현
+        - [x] 스트리밍 응답을 위한 `text/event-stream` 처리 로직 구현
+        - [x] 표준 API 에러 응답 형식 정의 및 구현
     - [ ] **F2: 텍스트 모델 런타임**
-        - [ ] `LlmRuntime` Trait 정의 (추상화)
+        - [x] `LlmRuntime` Trait 정의 (추상화)
         - [ ] `llama.cpp` Rust 바인딩을 사용한 `LlamaCppRuntime` 구현
         - [ ] GGUF/GGML 모델 파일 로딩 및 메모리 매핑 기능 구현
-        - [ ] 입력 프롬프트에 대한 텍스트 생성 로직 구현
+        - [x] 입력 프롬프트에 대한 텍스트 생성 로직 구현
     - [ ] **F3: 코어 엔진 및 동시성 처리**
-        - [ ] `CoreEngine` 구조체 정의 (모델 런타임 관리)
-        - [ ] `tokio::mpsc` 채널을 사용한 요청 큐(Queue) 구현
+        - [x] `CoreEngine` 구조체 정의 (모델 런타임 관리)
+        - [x] `tokio::mpsc` 채널을 사용한 요청 큐(Queue) 구현
         - [ ] 여러 요청을 동시에 처리하기 위한 Tokio 태스크 워커 풀(Worker Pool) 구현
-        - [ ] API 핸들러와 코어 엔진 연동
+        - [x] API 핸들러와 코어 엔진 연동
 
 ### Phase 2: 멀티모달 지원 (4주)
 - **목표**: 임베딩 및 비전-언어 모델 지원 추가.
